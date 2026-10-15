@@ -2,83 +2,151 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>윙윙 동물 합창단</title>
+  <meta name="claude:viewport-fit-sides" content="cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="top">
-    <h1>🎶 윙윙 동물 합창단</h1>
-    <p class="sub">악보를 넣으면 동물 주민들이 동물어 목소리로 불러 줘요 · 최대 4명 4중창</p>
-  </header>
+  <div class="wrap">
 
-  <main>
-    <section class="stage" id="stage">
-      <div class="sky"><div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div></div>
-      <div class="song-title" id="songTitle">악보를 넣어 주세요</div>
-      <div class="critters" id="critters"></div>
-      <div class="grass"></div>
-    </section>
+    <!-- ① 악보 올리기 -->
+    <section class="screen" id="screenUpload" aria-labelledby="appTitle">
+      <header class="page-head">
+        <p class="eyebrow">윙윙 동물 합창단</p>
+        <h1 id="appTitle">악보를 올려주세요</h1>
+        <p class="lead">동물 친구들이 무대에 올라와 동물어로 불러드려요. 최대 네 명이 4중창으로 노래해요.</p>
+      </header>
 
-    <section class="transport card">
-      <button class="big" id="playBtn" title="재생 (스페이스바)">▶</button>
-      <button id="stopBtn" title="처음으로">■</button>
-      <div class="progress">
-        <input type="range" id="seek" min="0" max="1000" value="0" aria-label="재생 위치">
-        <span id="time">0:00 / 0:00</span>
+      <div class="card upload-card" id="drop">
+        <div class="waiting" id="waiting" aria-hidden="true"></div>
+        <label class="btn btn-primary btn-lg btn-block" for="file">악보 파일 선택
+          <input type="file" id="file" accept=".musicxml,.xml,.mxl,.mid,.midi,.kar,.txt,.pdf">
+        </label>
+        <p class="caption">파일을 이곳에 끌어다 놓아도 돼요</p>
       </div>
-      <label class="mini">빠르기 <input type="range" id="speed" min="50" max="160" value="100"><output id="speedOut">100%</output></label>
-      <label class="mini">조옮김 <input type="range" id="transpose" min="-12" max="12" value="0"><output id="transposeOut">0</output></label>
-      <label class="mini">울림 <input type="range" id="reverb" min="0" max="100" value="25"></label>
-      <button id="exportBtn" title="WAV 파일로 저장">💾 WAV 저장</button>
-    </section>
+      <div class="msg" role="status"></div>
 
-    <section class="card">
-      <canvas id="roll" class="roll" aria-label="피아노 롤 (클릭해서 이동)"></canvas>
-    </section>
-
-    <div class="cols">
-      <section class="card input-card">
-        <h2>📜 악보 넣기</h2>
-        <div class="drop" id="drop">
-          <p><b>파일을 여기로 끌어다 놓거나</b></p>
-          <label class="file-btn">파일 고르기
-            <input type="file" id="file" accept=".musicxml,.xml,.mxl,.mid,.midi,.kar,.txt,.pdf">
-          </label>
-          <p class="hint">MusicXML (.musicxml .xml .mxl) · MIDI (.mid .kar) · 텍스트 악보 (.txt)<br>
-            MuseScore·Finale·Sibelius·Dorico 에서 “MusicXML 내보내기”한 파일이면 가사·코드까지 읽어요.<br>PDF는 그림이라 직접 읽지 못해요 → MusicXML로 내보내 주세요.</p>
+      <section class="group" aria-labelledby="samplesTitle">
+        <h2 class="group-title" id="samplesTitle">예제 악보로 들어보기</h2>
+        <div class="list card">
+          <button type="button" class="list-row" data-sample="journey">
+            <span class="row-icon" style="--c:#6e7cff">♪</span>
+            <span class="row-text"><b>Journey of dreaming</b><small>메인 보컬 · 코러스 · 코드 진행으로 4중창</small></span>
+            <span class="chev" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="list-row" data-sample="twinkle">
+            <span class="row-icon" style="--c:#ffb020">★</span>
+            <span class="row-text"><b>반짝반짝 작은별</b><small>소프라노 · 알토 · 테너 · 베이스</small></span>
+            <span class="chev" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="list-row" data-sample="melodyOnly">
+            <span class="row-icon" style="--c:#19c37d">♫</span>
+            <span class="row-text"><b>학교 종</b><small>선율 하나로 자동 화음 만들기</small></span>
+            <span class="chev" aria-hidden="true"></span>
+          </button>
         </div>
-        <div class="samples">
-          예제: <button data-sample="journey">🌙 Journey of dreaming</button>
-          <button data-sample="twinkle">반짝반짝 작은별 (4성부)</button>
-          <button data-sample="melodyOnly">학교 종 (선율만 → 자동 화음)</button>
-        </div>
-        <details id="textDetails">
-          <summary>✏️ 텍스트로 악보 쓰기</summary>
-          <textarea id="textScore" spellcheck="false"></textarea>
-          <button id="applyText">이 악보로 부르기</button>
-        </details>
-        <div class="msg" id="msg" role="status"></div>
       </section>
 
-      <section class="card choir-card">
-        <div class="choir-head">
-          <h2>🐾 합창단</h2>
-          <div class="seg" id="countSeg" role="group" aria-label="인원">
-            <button data-n="1">1명</button><button data-n="2">2명</button><button data-n="3">3명</button><button data-n="4">4명</button>
+      <section class="group">
+        <details class="card text-score" id="textDetails">
+          <summary class="list-row">
+            <span class="row-icon" style="--c:#8b95a1">✎</span>
+            <span class="row-text"><b>텍스트로 악보 쓰기</b><small>음이름과 가사를 직접 적어요</small></span>
+            <span class="chev down" aria-hidden="true"></span>
+          </summary>
+          <div class="text-body">
+            <textarea id="textScore" spellcheck="false" aria-label="텍스트 악보"></textarea>
+            <button type="button" class="btn btn-primary btn-lg btn-block" id="applyText">이 악보로 부르기</button>
           </div>
-          <button id="autoAssign" title="파트를 높은 음부터 자동으로 나눠요">자동 배정</button>
-          <button id="autoHarm" title="1번 가수의 선율로 나머지 성부 화음을 만들어요">✨ 자동 화음</button>
+        </details>
+      </section>
+
+      <p class="fineprint">MusicXML(.musicxml · .xml · .mxl), MIDI(.mid · .kar), 텍스트(.txt)를 읽어요.
+        Sibelius · MuseScore · Finale · Dorico에서 MusicXML로 내보내면 가사와 코드까지 그대로 불러요. PDF는 그림이라 직접 읽지 못해요.</p>
+    </section>
+
+    <!-- ② 무대 -->
+    <section class="screen" id="screenStage" hidden aria-labelledby="songTitle">
+      <nav class="navbar">
+        <button type="button" class="nav-back" id="backBtn" aria-label="다른 악보 고르기"><span class="chev left" aria-hidden="true"></span>악보</button>
+      </nav>
+
+      <header class="page-head">
+        <p class="eyebrow">지금 무대</p>
+        <h1 id="songTitle">악보</h1>
+        <p class="lead" id="songMeta"></p>
+      </header>
+
+      <div class="stage" id="stage">
+        <div class="sky" aria-hidden="true"><div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div></div>
+        <div class="critters" id="critters"></div>
+        <div class="grass" aria-hidden="true"></div>
+      </div>
+
+      <div class="card player">
+        <div class="progress">
+          <input type="range" id="seek" min="0" max="1000" value="0" aria-label="재생 위치">
+          <div class="times"><span id="timeNow">0:00</span><span id="timeLeft">-0:00</span></div>
+        </div>
+        <div class="controls">
+          <button type="button" class="icon-btn" id="stopBtn" aria-label="처음으로">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9.5 12z"/></svg>
+          </button>
+          <button type="button" class="play-btn" id="playBtn" aria-label="재생"></button>
+          <span class="icon-btn ghost" aria-hidden="true"></span>
+        </div>
+      </div>
+
+      <div class="msg" role="status"></div>
+
+      <section class="group" aria-labelledby="rollTitle">
+        <h2 class="group-title" id="rollTitle">노래 흐름</h2>
+        <div class="card roll-card">
+          <canvas id="roll" class="roll" aria-label="피아노 롤 (누르면 그 위치로 이동)"></canvas>
+        </div>
+      </section>
+
+      <section class="group" aria-labelledby="choirTitle">
+        <h2 class="group-title" id="choirTitle">합창단</h2>
+        <div class="card choir-head">
+          <div class="seg" id="countSeg" role="group" aria-label="인원">
+            <button type="button" data-n="1">1명</button><button type="button" data-n="2">2명</button><button type="button" data-n="3">3명</button><button type="button" data-n="4">4명</button>
+          </div>
+          <div class="head-actions">
+            <button type="button" class="btn btn-tonal" id="autoAssign" title="파트를 높은 음부터 자동으로 나눠요">자동 배정</button>
+            <button type="button" class="btn btn-tonal" id="autoHarm" title="1번 가수의 선율로 나머지 성부 화음을 만들어요">자동 화음</button>
+          </div>
         </div>
         <div class="singers" id="singers"></div>
       </section>
-    </div>
-  </main>
 
-  <footer>
-    목소리는 미리 녹음된 소리 없이 브라우저에서 실시간으로 합성해요 (Web Audio).
-    캐릭터와 목소리는 동물의 숲 느낌을 낸 오리지널이에요.
-  </footer>
+      <section class="group" aria-labelledby="soundTitle">
+        <h2 class="group-title" id="soundTitle">소리</h2>
+        <div class="card list settings">
+          <label class="set-row" for="speed"><span>빠르기</span><input type="range" id="speed" min="50" max="160" value="100"><output id="speedOut">100%</output></label>
+          <label class="set-row" for="transpose"><span>조옮김</span><input type="range" id="transpose" min="-12" max="12" value="0"><output id="transposeOut">0</output></label>
+          <label class="set-row" for="reverb"><span>울림</span><input type="range" id="reverb" min="0" max="100" value="25"><output id="reverbOut">25</output></label>
+          <div class="set-row export-row">
+            <span>합창 녹음</span>
+            <button type="button" class="btn btn-tonal" id="exportBtn">WAV 만들기</button>
+          </div>
+          <audio id="exportPlayer" controls hidden></audio>
+        </div>
+      </section>
+
+      <div class="cta-bar" id="startOverlay">
+        <button type="button" class="btn btn-primary btn-xl btn-block" id="startBtn">노래 시작하기</button>
+      </div>
+    </section>
+
+    <footer class="fineprint">
+      목소리는 녹음된 소리 없이 브라우저에서 실시간으로 합성해요. 캐릭터와 목소리는 동물의 숲 느낌을 낸 오리지널이에요.
+    </footer>
+  </div>
 
   <script src="js/phonetics.js"></script>
   <script src="js/score.js"></script>

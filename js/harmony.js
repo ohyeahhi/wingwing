@@ -201,16 +201,16 @@
       // 테너: 선율·알토 아래, C3~A4
       const top = Math.min(a, m != null ? m : a);
       const haveThird = melPc === third || a % 12 === third;
-      cand = chordTonesIn(Math.max(48, top - 12), Math.min(69, top - 1), pcs);
+      cand = chordTonesIn(Math.max(50, top - 12), Math.min(70, top - 1), pcs);
       if (!cand.length) cand = chordTonesIn(top - 12, top - 1, pcs);
       if (!cand.length) cand = [top - 5];
       const t = pick(cand, st.t, x => (!haveThird && x % 12 !== third ? 3 : 0) + (x % 12 === melPc || x % 12 === a % 12 ? 1 : 0));
       st.t = t;
       // 베이스: 베이스음(분수 코드면 분모), E2~C4
       const upper = roles.includes('tenor') ? t : top;
-      cand = chordTonesIn(40, Math.min(60, upper), [ch.bass]);
+      cand = chordTonesIn(45, Math.min(62, upper), [ch.bass]);
       if (!cand.length) cand = chordTonesIn(upper - 24, upper - 1, [ch.bass]);
-      const bs = pick(cand, st.b, x => (x < 43 ? 1 : 0));
+      const bs = pick(cand, st.b, x => (x < 47 ? 1 : 0));
       st.b = bs;
       return { alto: a, tenor: t, bass: bs };
     }
