@@ -153,6 +153,20 @@ textarea {
 .msg:empty { display: none; }
 .msg.err { background: var(--err-weak); color: var(--err); }
 
+.pick-card { padding: 18px 14px 14px; display: grid; gap: 10px; }
+.pick-card .group-title { margin: 0 6px; font-size: 18px; }
+.pick-row { cursor: pointer; }
+.check {
+  appearance: none; -webkit-appearance: none; flex: 0 0 24px; width: 24px; height: 24px; margin: 0 2px; border-radius: 50%;
+  background: var(--fill-press); position: relative; cursor: pointer; transition: background-color .15s;
+}
+.check::after {
+  content: ""; position: absolute; left: 8px; top: 4px; width: 6px; height: 11px;
+  border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.check:checked { background: var(--accent); }
+.pick-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; margin-top: 4px; }
+
 /* ---------- ② 무대 ---------- */
 .navbar {
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;

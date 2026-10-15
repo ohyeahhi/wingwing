@@ -26,9 +26,18 @@
         <label class="btn btn-primary btn-lg btn-block" for="file">악보 파일 선택
           <input type="file" id="file" accept=".musicxml,.xml,.mxl,.mid,.midi,.kar,.txt,.pdf">
         </label>
-        <p class="caption">파일을 이곳에 끌어다 놓아도 돼요</p>
+        <p class="caption">파일을 이곳에 끌어다 놓아도 돼요 · 악보 프로그램에서 저장한 PDF도 읽어요(베타)</p>
       </div>
       <div class="msg" role="status"></div>
+
+      <div class="card pick-card" id="pickCard" hidden>
+        <h2 class="group-title" id="pickTitle">부를 파트를 골라 주세요</h2>
+        <div class="list" id="pickList"></div>
+        <div class="pick-actions">
+          <button type="button" class="btn btn-lg" id="pickCancel">취소</button>
+          <button type="button" class="btn btn-primary btn-lg" id="pickGo">이 파트로 부르기</button>
+        </div>
+      </div>
 
       <section class="group" aria-labelledby="samplesTitle">
         <h2 class="group-title" id="samplesTitle">예제 악보로 들어보기</h2>
@@ -66,7 +75,8 @@
       </section>
 
       <p class="fineprint">MusicXML(.musicxml · .xml · .mxl), MIDI(.mid · .kar), 텍스트(.txt)를 읽어요.
-        Sibelius · MuseScore · Finale · Dorico에서 MusicXML로 내보내면 가사와 코드까지 그대로 불러요. PDF는 그림이라 직접 읽지 못해요.</p>
+        Sibelius · MuseScore · Finale · Dorico에서 MusicXML로 내보내면 가사와 코드까지 그대로 불러요.
+        이 프로그램들이 저장한 PDF도 음표·가사·코드를 읽어요(베타). 스캔하거나 사진으로 찍은 악보는 읽지 못해요.</p>
     </section>
 
     <!-- ② 무대 -->
@@ -198,6 +208,7 @@
   <script src="js/fx.js"></script>
   <script src="js/characters.js"></script>
   <script src="js/pianoroll.js"></script>
+  <script src="js/pdfscore.js"></script>
   <script src="js/samples.js"></script>
   <script src="js/sample-journey.js"></script>
   <script src="js/app.js"></script>

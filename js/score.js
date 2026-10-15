@@ -130,19 +130,27 @@
     const tracks = {};
     const trackOrder = [];
     const parts = kids(root, 'part');
+    const structure = [];   // 첫 파트의 마디마다 도돌이표·괄호·D.C. 정보
+    const measLens = [];    // 첫 파트의 마디 길이
 
     parts.forEach((part, pi) => {
       const pid = part.getAttribute('id');
       let divisions = 1;
       let measureStart = 0;
+      let mi = -1;
+      let openEnding = null;
       const pending = {}; // 붙임줄 이어 붙이기
       const staffsUsed = new Set();
       const voicesUsed = new Set();
       for (const measure of kids(part, 'measure')) {
+        mi++;
         let cursor = 0, maxCursor = 0, lastStart = 0;
+        const S = pi === 0 ? (structure[mi] = {}) : null;
+        if (S && openEnding) S.endings = openEnding;
         const addTempo = (sound) => {
           const tv = sound && parseFloat(sound.getAttribute('tempo'));
-          if (tv > 0) tempoEvents.push({ b: measureStart + cursor, bpm: tv });
+          if (tv > 0) tempoEvents.push({ b: measureStart + cursor, bpm: tv, mi, ob: cursor });
+          if (S && sound) jumpMarks(sound, S);
         };
         for (const el of kids(measure)) {
           switch (el.tagName) {
@@ -159,6 +167,20 @@
               }
               break;
             }
+            case 'barline': {
+              if (!S) break;
+              const rep = kid(el, 'repeat');
+              if (rep && rep.getAttribute('direction') === 'forward') S.repeatStart = true;
+              if (rep && rep.getAttribute('direction') === 'backward') { S.repeatEnd = true; S.times = parseInt(rep.getAttribute('times') || '2', 10); }
+              const end = kid(el, 'ending');
+              if (end) {
+                const type = end.getAttribute('type');
+                const nums = (end.getAttribute('number') || '1').split(/[,\s]+/).map(x => parseInt(x, 10)).filter(x => x > 0);
+                if (type === 'start') { openEnding = nums; S.endings = nums; }
+                else { S.endings = S.endings || nums; openEnding = null; }
+              }
+              break;
+            }
             case 'backup': cursor -= parseFloat(txt(el, 'duration') || '0') / divisions; break;
             case 'forward': cursor += parseFloat(txt(el, 'duration') || '0') / divisions; maxCursor = Math.max(maxCursor, cursor); break;
             case 'sound': addTempo(el); break;
@@ -168,12 +190,23 @@
               if (sym) {
                 chordPart = pi;
                 const off = parseFloat(txt(el, 'offset') || '0') / divisions;
-                chordEvents.push({ b: measureStart + cursor + off, sym });
+                chordEvents.push({ b: measureStart + cursor + off, sym, mi, ob: cursor + off });
               }
               break;
             }
             case 'direction': {
               const snd = kid(el, 'sound');
+              if (S) {
+                for (const w of el.getElementsByTagName('words')) {
+                  const t = w.textContent;
+                  if (/D\.?\s*C\./i.test(t)) S.dacapo = true;
+                  if (/D\.?\s*S\./i.test(t)) S.dalsegno = true;
+                  if (/to\s*coda/i.test(t)) S.tocoda = true;
+                  else if (/\bfine\b/i.test(t)) S.fine = true;
+                }
+                if (el.getElementsByTagName('segno').length) S.segno = true;
+                if (el.getElementsByTagName('coda').length && !S.tocoda) S.coda = true;
+              }
               if (snd && snd.getAttribute('tempo')) addTempo(snd);
               else {
                 const met = el.getElementsByTagName('metronome')[0];
@@ -181,7 +214,7 @@
                   const pm = parseFloat(txt(met, 'per-minute'));
                   const unit = { whole: 4, half: 2, quarter: 1, eighth: 0.5, '16th': 0.25 }[txt(met, 'beat-unit')] || 1;
                   const dot = kid(met, 'beat-unit-dot') ? 1.5 : 1;
-                  if (pm > 0) tempoEvents.push({ b: measureStart + cursor, bpm: pm * unit * dot });
+                  if (pm > 0) tempoEvents.push({ b: measureStart + cursor, bpm: pm * unit * dot, mi, ob: cursor });
                 }
               }
               break;
@@ -209,12 +242,17 @@
                 if (!ties.includes('start')) delete pending[pKey];
                 break;
               }
-              const lyrics = kids(el, 'lyric');
-              const ly = lyrics.find(l => (l.getAttribute('number') || '1') === '1') || lyrics[0];
-              let lyric = ly ? kids(ly, 'text').map(t => t.textContent).join('').trim() || null : null;
-              const syllabic = ly && txt(ly, 'syllabic');
-              if (lyric && (!syllabic || syllabic === 'single' || syllabic === 'end')) lyric += ' ';
-              const note = { b: absStart, bd: dur, midi, lyric };
+              // 절마다 가사 (도돌이표 두 번째에는 2절 가사로 부른다)
+              const verses = {};
+              for (const ly of kids(el, 'lyric')) {
+                let t = kids(ly, 'text').map(x => x.textContent).join('').trim();
+                if (!t) continue;
+                const syllabic = txt(ly, 'syllabic');
+                if (!syllabic || syllabic === 'single' || syllabic === 'end') t += ' ';
+                verses[ly.getAttribute('number') || '1'] = t;
+              }
+              const lyric = verses['1'] || Object.values(verses)[0] || null;
+              const note = { b: absStart, bd: dur, midi, lyric, verses, mi, ob: start };
               if (!tracks[tKey]) { tracks[tKey] = { pid, pi, staff, voice, notes: [] }; trackOrder.push(tKey); }
               tracks[tKey].notes.push(note);
               if (ties.includes('start')) pending[pKey] = { note, end: absStart + dur };
@@ -222,6 +260,7 @@
             }
           }
         }
+        if (pi === 0) measLens[mi] = maxCursor;
         measureStart += maxCursor;
       }
       // 이름 붙이기
@@ -235,10 +274,84 @@
       }
     });
 
+    // 도돌이표·D.C.·D.S.·Coda 를 펼친 연주 순서
+    const order = playOrder(structure);
+    if (order.some((m, k) => m !== k) || order.length !== structure.length) {
+      const starts = [];
+      let acc = 0;
+      for (const m of order) { starts.push(acc); acc += measLens[m] || 0; }
+      const firstAt = {};
+      order.forEach((m, k) => { if (!(m in firstAt)) firstAt[m] = k; });
+      for (const k of trackOrder) {
+        const tr = tracks[k];
+        const byM = {};
+        for (const n of tr.notes) (byM[n.mi] = byM[n.mi] || []).push(n);
+        const out = [], seen = {};
+        order.forEach((m, k2) => {
+          const pass = seen[m] = (seen[m] || 0) + 1;
+          for (const n of byM[m] || []) out.push({ b: starts[k2] + n.ob, bd: n.bd, midi: n.midi, lyric: n.verses[String(pass)] || n.lyric });
+        });
+        tr.notes = out;
+      }
+      const remap = list => {
+        const out = [];
+        order.forEach((m, k2) => { for (const e of list) if (e.mi === m) out.push({ ...e, b: starts[k2] + e.ob }); });
+        return out;
+      };
+      const ce = remap(chordEvents);
+      chordEvents.length = 0; chordEvents.push(...ce);
+      const te = tempoEvents.filter(e => e.mi != null && firstAt[e.mi] != null).map(e => ({ ...e, b: starts[firstAt[e.mi]] + e.ob }));
+      tempoEvents.length = 0; tempoEvents.push(...te);
+    }
+
     chordEvents.sort((a, b) => a.b - b.b);
     const songEnd = Math.max(0, ...Object.values(tracks).flatMap(t => t.notes.map(n => n.b + n.bd)));
     const chords = chordEvents.map((c, i) => ({ ...c, bd: (i + 1 < chordEvents.length ? chordEvents[i + 1].b : songEnd) - c.b })).filter(c => c.bd > 0);
     return finalizeSong({ title, tracks: trackOrder.map(k => tracks[k]), tempoEvents, key, chords, beatUnit });
+  }
+
+  // <sound segno=…, coda=…, tocoda=…, dacapo="yes", dalsegno=…, fine=…>
+  function jumpMarks(sound, S) {
+    if (sound.getAttribute('segno')) S.segno = true;
+    if (sound.getAttribute('coda')) S.coda = true;
+    if (sound.getAttribute('tocoda')) S.tocoda = true;
+    if (sound.getAttribute('dacapo') === 'yes') S.dacapo = true;
+    if (sound.getAttribute('dalsegno')) S.dalsegno = true;
+    if (sound.getAttribute('fine')) S.fine = true;
+  }
+
+  // 마디 연주 순서: 반복(몇 번), 1·2번 괄호, D.C./D.S. 후 Fine 또는 To Coda → Coda
+  function playOrder(S) {
+    const M = S.length;
+    const order = [];
+    const segno = S.findIndex(m => m && m.segno);
+    const coda = S.findIndex(m => m && m.coda);
+    const count = {};
+    // 괄호 묶음마다 가장 큰 번호 (D.C. 뒤에는 마지막 괄호만 연주)
+    const groupMax = new Array(M).fill(0);
+    for (let a = 0; a < M; a++) {
+      if (!(S[a] && S[a].endings) || (a > 0 && S[a - 1] && S[a - 1].endings)) continue;
+      let b = a, mx = 0;
+      while (b < M && S[b] && S[b].endings) { mx = Math.max(mx, ...S[b].endings); b++; }
+      for (let k = a; k < b; k++) groupMax[k] = mx;
+    }
+    let i = 0, repeatStart = 0, pass = 1, jumped = false, guard = 0;
+    while (i < M && guard++ < M * 10) {
+      const m = S[i] || {};
+      if (m.repeatStart && i !== repeatStart) { repeatStart = i; pass = 1; }
+      if (m.endings && !m.endings.includes(jumped ? groupMax[i] : pass)) { i++; continue; }
+      order.push(i);
+      if (jumped && m.fine) break;
+      if (jumped && m.tocoda && coda > i) { i = coda; continue; }
+      if (m.repeatEnd && !jumped) {
+        const c = count[i] || 1;
+        if (c < (m.times || 2)) { count[i] = c + 1; pass = c + 1; i = repeatStart; continue; }
+        count[i] = 1; pass = 1; repeatStart = i + 1;
+      }
+      if (!jumped && (m.dacapo || (m.dalsegno && segno >= 0))) { jumped = true; pass = 1; i = m.dacapo ? 0 : segno; continue; }
+      i++;
+    }
+    return order;
   }
 
   // <harmony> → "Ebmaj7" 같은 코드 기호

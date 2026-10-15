@@ -722,6 +722,15 @@
     } else if (song.lines.length === 1 && state.count > 1) {
       autoHarmony(true);
       note = '\n선율이 하나뿐이라 자동 화음으로 나머지 성부를 만들었어요.';
+    } else if (song.chords && state.count > 1) {
+      // 노래 파트가 인원보다 적고 코드 진행이 있으면, 가사가 가장 많은 파트에 화음을 붙인다
+      const maxN = Math.max(...song.lines.map(l => l.notes.length));
+      const real = song.lines.filter(l => l.notes.length >= maxN * 0.2);
+      if (real.length < state.count) {
+        const lead = real.slice().sort((a, b) => b.notes.filter(n => n.lyric).length - a.notes.filter(n => n.lyric).length)[0];
+        autoHarmony(true, lead);
+        note = `\n"${lead.name}" 선율에 악보의 코드 진행으로 알토·테너·베이스 화음을 붙였어요.`;
+      }
     }
     const lyr = song.lines.some(l => l.hasLyrics) ? '가사 있음' : '가사 없음 → 가수별 "가사 없을 때" 음절로 불러요';
     msg(`${sourceLabel}에서 파트 ${song.lines.length}개를 읽었어요 · ${lyr}${note}`, 'ok');
@@ -738,10 +747,7 @@
     try {
       const name = file.name.toLowerCase();
       let song;
-      if (/\.pdf$/.test(name)) {
-        msg('PDF 악보는 그림이라 바로 읽을 수 없어요.\n악보 프로그램(Sibelius·MuseScore·Finale·Dorico)에서 "MusicXML로 내보내기" 한 파일을 넣어 주세요.\n(MuseScore는 PDF를 MusicXML로 바꿔 주는 "PDF 가져오기" 기능도 있어요.)', 'err');
-        return;
-      }
+      if (/\.pdf$/.test(name)) { await loadPdf(file); return; }
       if (/\.(mid|midi|kar)$/.test(name)) song = W.Midi.parseMidi(await file.arrayBuffer());
       else if (/\.mxl$/.test(name)) song = await W.Score.parseMXL(await file.arrayBuffer());
       else {
@@ -758,6 +764,58 @@
       console.error(err);
       msg('악보를 읽지 못했어요. ' + (err.message || err), 'err');
     }
+  }
+
+  // ---------- PDF (베타) ----------
+  const VOCAL_RE = /vocal|voice|chorus|choir|sopran|^alto|^tenor|^bass$|^baritone|melody|보컬|합창|코러스|소프라노|알토|테너|베이스|노래|선율|멜로디/i;
+  async function loadPdf(file) {
+    const progress = t => msg(t);
+    msg('PDF 악보를 여는 중…');
+    const handle = await W.PdfScore.open(await file.arrayBuffer(), progress);
+    const secs = handle.sections.map((s, i) => ({ ...s, i })).filter(s => s.pages.length);
+    const partSecs = secs.filter(s => s.label && !/score|총보|스코어/i.test(s.label));
+    const finish = async idx => {
+      const song = await W.PdfScore.read(handle, idx, progress);
+      if (!song.title) song.title = file.name.replace(/\.[^.]+$/, '');
+      setSong(song, file.name);
+      const prev = document.querySelector('#screenStage .msg').textContent;
+      msg(prev + '\nPDF 읽기는 베타라 틀린 음이 있을 수 있어요. 정확하게 부르려면 악보 프로그램에서 MusicXML로 내보낸 파일을 넣어 주세요.', 'ok');
+    };
+    if (partSecs.length >= 2) {
+      msg('');
+      showPicker(partSecs.map(s => ({ id: s.i, name: s.label, sub: `${s.pages.length}쪽`, on: VOCAL_RE.test(s.label) })),
+        `PDF에서 파트 ${partSecs.length}개를 찾았어요. 부를 파트를 골라 주세요.`,
+        async ids => {
+          try { await finish(ids); } catch (err) { console.error(err); msg('악보를 읽지 못했어요. ' + (err.message || err), 'err'); }
+        });
+      return;
+    }
+    await finish(secs.map(s => s.i));
+  }
+
+  // 파트 고르기 (여러 파트가 든 PDF)
+  function showPicker(items, title, onGo) {
+    if (!items.some(it => it.on)) items[0].on = true;
+    items = items.filter(it => it.on).concat(items.filter(it => !it.on)); // 골라 둔 파트를 위로
+    const card = $('#pickCard');
+    $('#pickTitle').textContent = title;
+    const list = $('#pickList');
+    list.innerHTML = '';
+    for (const it of items) {
+      const row = document.createElement('label');
+      row.className = 'list-row pick-row';
+      row.innerHTML = `<input type="checkbox" class="check" ${it.on ? 'checked' : ''} data-id="${it.id}"><span class="row-text"><b>${escapeHtml(it.name)}</b><small>${escapeHtml(it.sub || '')}</small></span>`;
+      list.appendChild(row);
+    }
+    card.hidden = false;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('#pickGo').onclick = () => {
+      const ids = [...list.querySelectorAll('input:checked')].map(i => +i.dataset.id);
+      if (!ids.length) { msg('파트를 하나 이상 골라 주세요.', 'err'); return; }
+      card.hidden = true;
+      onGo(ids);
+    };
+    $('#pickCancel').onclick = () => { card.hidden = true; msg(''); };
   }
 
   function loadText(text, label) {
