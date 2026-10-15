@@ -4,14 +4,23 @@
   const W = window;
   const $ = s => document.querySelector(s);
 
+  // 성격: 목소리와 몸짓을 한 번에 바꾸는 묶음
+  const PERSONALITY = {
+    sweet:  { label: '다정',  voice: { formant: 1.5,  chirp: 0.5,  vibrato: 0.4,  brightness: 0.45, breath: 0.4 },  mood: { amp: 1,    tilt: 0,  slow: 1, pump: 0 } },
+    peppy:  { label: '발랄',  voice: { formant: 1.66, chirp: 0.75, vibrato: 0.45, brightness: 0.58, breath: 0.3 },  mood: { amp: 1.3,  tilt: 0,  slow: 1, pump: 0 } },
+    snooty: { label: '새침',  voice: { formant: 1.55, chirp: 0.3,  vibrato: 0.25, brightness: 0.52, breath: 0.45 }, mood: { amp: 0.7,  tilt: -4, slow: 1, pump: 0 } },
+    lazy:   { label: '느긋',  voice: { formant: 1.36, chirp: 0.25, vibrato: 0.5,  brightness: 0.34, breath: 0.5 },  mood: { amp: 0.6,  tilt: 0,  slow: 2, pump: 0 } },
+    jock:   { label: '씩씩',  voice: { formant: 1.34, chirp: 0.55, vibrato: 0.15, brightness: 0.56, breath: 0.15 }, mood: { amp: 1.15, tilt: 0,  slow: 1, pump: 1 } },
+  };
   const DEFAULT_SINGERS = [
-    { name: '솜이', species: 'rabbit', outfit: '#ff9eb5', octave: 0, formant: 1.6, chirp: 0.6, vibrato: 0.45, brightness: 0.5, breath: 0.4, volume: 0.9, syllables: '라' },
-    { name: '나비', species: 'cat', outfit: '#8fd3ff', octave: 0, formant: 1.52, chirp: 0.55, vibrato: 0.4, brightness: 0.45, breath: 0.4, volume: 0.85, syllables: '라' },
-    { name: '멍구', species: 'dog', outfit: '#ffd166', octave: 0, formant: 1.44, chirp: 0.5, vibrato: 0.35, brightness: 0.42, breath: 0.35, volume: 0.85, syllables: '라' },
-    { name: '곰돌', species: 'bear', outfit: '#9be39b', octave: 0, formant: 1.36, chirp: 0.45, vibrato: 0.3, brightness: 0.4, breath: 0.3, volume: 0.95, syllables: '라' },
+    { name: '솜이', species: 'rabbit', outfit: '#ff9eb5', octave: 0, personality: 'peppy', ...PERSONALITY.peppy.voice, volume: 0.9, syllables: '라' },
+    { name: '나비', species: 'cat', outfit: '#8fd3ff', octave: 0, personality: 'snooty', ...PERSONALITY.snooty.voice, volume: 0.85, syllables: '라' },
+    { name: '멍구', species: 'dog', outfit: '#ffd166', octave: 0, personality: 'jock', ...PERSONALITY.jock.voice, volume: 0.85, syllables: '라' },
+    { name: '곰돌', species: 'bear', outfit: '#9be39b', octave: 0, personality: 'lazy', ...PERSONALITY.lazy.voice, volume: 0.95, syllables: '라' },
   ];
+  const DEFAULT_STAGE = { scene: 'day', accomp: 'none', dance: 1, greet: true, applause: true, sizeByVoice: false };
   // 목소리 기본값이 바뀌면 버전을 올려서 예전 저장값을 쓰지 않는다
-  const STORE_KEY = 'wingwing-choir-v2';
+  const STORE_KEY = 'wingwing-choir-v3';
 
   const state = {
     song: null,
@@ -19,6 +28,8 @@
     singers: [],
     count: 4,
     harmonyStyle: 'classic',  // 자동 화음 스타일
+    stage: { ...DEFAULT_STAGE }, // 무대 꾸미기
+    accomp: null,
     chordTimeline: [],        // 코드 진행 (반주에 씀)
     speed: 1,
     transpose: 0,
@@ -43,12 +54,14 @@
     }));
     if (saved && saved.count >= 1 && saved.count <= 4) state.count = saved.count;
     if (saved && saved.harmonyStyle && W.Harmony.STYLES.includes(saved.harmonyStyle)) state.harmonyStyle = saved.harmonyStyle;
+    if (saved && saved.stage) state.stage = { ...DEFAULT_STAGE, ...saved.stage };
   }
   function savePrefs() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         count: state.count,
         harmonyStyle: state.harmonyStyle,
+        stage: state.stage,
         singers: state.singers.map(({ lineId, mute, solo, ...rest }) => rest),
       }));
     } catch (e) { /* 저장 불가 환경 */ }
@@ -176,6 +189,7 @@
       i, h: W.Voice.singLine(ctx, state.bus.input, line, voiceOpts(s), offset, when, state.speed),
       ptr: 0,
     }));
+    state.accomp = startAccomp(ctx, state.bus.input, offset, when);
     state.playing = true;
     setPlayIcon(true);
     updateStartOverlay();
@@ -184,6 +198,26 @@
   function stopVoices() {
     for (const x of state.handles) x.h.stop();
     state.handles = [];
+    if (state.accomp) { state.accomp.stop(); state.accomp = null; }
+  }
+
+  // 반주 (무대 꾸미기에서 고른 악기)
+  function startAccomp(ctx, dest, offset, when) {
+    const song = state.song;
+    if (state.stage.accomp === 'none' || !song || !song.beatToSec || !state.chordTimeline.length) return null;
+    return W.Accomp.start(ctx, dest, {
+      chords: state.chordTimeline, style: state.stage.accomp, pulse: beatPulse(),
+      beatToSec: song.beatToSec, offset, when, speed: state.speed, transpose: state.transpose, volume: 0.75,
+    });
+  }
+
+  // 한 박의 길이 (4분음표 = 1). 6/8 처럼 점4분음표가 한 박이면 1.5
+  function beatPulse() {
+    const song = state.song;
+    if (song && song.beatUnit) return song.beatUnit;
+    const tl = state.chordTimeline;
+    if (tl.length > 2 && tl.every(c => Math.abs(c.b / 1.5 - Math.round(c.b / 1.5)) < 1e-3) && tl.some(c => Math.abs(c.b - Math.round(c.b)) > 1e-3)) return 1.5;
+    return 1;
   }
 
   function currentPos() {
@@ -237,12 +271,59 @@
         const d = 0.15 + i * 0.22;
         c.wrap.style.setProperty('--d', d + 's');
         c.wrap.classList.add('enter');
-        greetTimers.push(setTimeout(() => { if (!state.playing) { c.bounceT = performance.now(); c.say(['안녕!', '반가워!', '안녕하세요!', '야호!'][i % 4]); } }, (d + 0.75) * 1000));
+        const hello = ['안녕!', '반가워!', '안녕하세요!', '야호!'][i % 4];
+        greetTimers.push(setTimeout(() => {
+          if (state.playing) return;
+          c.bounceT = performance.now();
+          c.say(hello);
+          if (state.stage.greet) speak(i, hello);
+        }, (d + 0.75) * 1000));
         greetTimers.push(setTimeout(() => { if (!state.playing) c.say(''); }, (d + 2.4) * 1000));
       }
       critters.push(c);
     }
+    applyCritterLooks();
     refreshCritterTags();
+  }
+
+  function applyCritterLooks() {
+    critters.forEach((c, i) => {
+      const s = state.singers[i];
+      c.dance = state.stage.dance;
+      c.mood = (PERSONALITY[s.personality] || PERSONALITY.sweet).mood;
+    });
+  }
+
+  function avgPitch(line) {
+    let sum = 0, w = 0;
+    for (const n of line.notes) { sum += n.midi * n.d; w += n.d; }
+    return w ? sum / w : 60;
+  }
+
+  // 동물어로 짧게 말하기 (빠른 음절 + 말하는 듯한 음높이)
+  function speak(i, text) {
+    if (!state.ctx || state.ctx.state !== 'running') return;
+    const s = state.singers[i];
+    const syl = [...text].filter(ch => /[가-힣]/.test(ch));
+    if (!syl.length) return;
+    const line = lineById(s.lineId);
+    const base = Math.round(Math.max(62, Math.min(76, (line ? avgPitch(line) : [72, 67, 62, 57][i]) + 5)));
+    const step = 0.09;
+    const contour = [0, 2, -1, 3, 1, 4];
+    const notes = syl.map((ch, k) => ({
+      t: k * step, d: step * 0.95, lyric: ch,
+      midi: base + contour[k % contour.length] + (k === syl.length - 1 && /!/.test(text) ? 3 : 0),
+    }));
+    W.Voice.singLine(state.ctx, state.bus.input, { notes, hasLyrics: true },
+      { ...voiceOpts(s), volume: s.volume * 0.85, transpose: 0, octave: 0, vibrato: 0, chirp: Math.min(1, s.chirp + 0.3) },
+      0, state.ctx.currentTime + 0.03, 1);
+  }
+
+  // 노래가 끝나면 꾸벅 인사 + 박수 + 꽃가루
+  function curtainCall() {
+    critters.forEach((c, i) => setTimeout(() => c.bow(), i * 120));
+    fx.burst();
+    if (state.ctx && state.ctx.state === 'running') W.Sfx.applause(state.ctx, state.bus.input, 3.2);
   }
   function partLabel(line) { return line ? line.name.replace(/^자동 화음 · /, '') : '쉬는 중'; }
   function refreshCritterTags() {
@@ -251,6 +332,8 @@
       const line = lineById(s.lineId);
       c.tag.innerHTML = `${escapeHtml(s.name)}<small>${escapeHtml(partLabel(line))}</small>`;
       c.setDimmed(!line || effVolume(s) === 0);
+      // 목소리가 낮을수록 몸집이 크게
+      c.setScale(state.stage.sizeByVoice && line ? Math.max(0.84, Math.min(1.16, 1 + (62 - avgPitch(line)) * 0.013)) : 1);
     });
     refreshSongMeta();
   }
@@ -285,8 +368,11 @@
       pause();
       state.pos = 0;
       updateStartOverlay();
+      if (state.stage.applause) curtainCall();
     }
     const audioT = state.playing ? state.ctx.currentTime : 0;
+    const beat = state.playing && state.song && state.song.secToBeat ? state.song.secToBeat(pos) / beatPulse() : null;
+    fx.tick();
     // 1) 가수마다 지금 부르는 음
     const cur = critters.map((c, i) => {
       const hx = state.playing ? state.handles.find(x => x.i === i) : null;
@@ -312,7 +398,7 @@
       const x = cur[i];
       const li = lineById(state.singers[i].lineId);
       // 자동 화음(우~, 둠 같은 반주 소리 포함)은 말풍선 없이
-      c.update(now, x.ev, x.idx, pos, audioT, i !== lead && !!x.text && x.text !== topText && !(li && li.auto));
+      c.update(now, x.ev, x.idx, pos, audioT, i !== lead && !!x.text && x.text !== topText && !(li && li.auto), beat);
     });
     renderLyrics(pos, topText);
     roll.draw(pos);
@@ -409,6 +495,7 @@
 
   // ---------- 피아노 롤 ----------
   const roll = new W.PianoRoll($('#roll'), t => seek(t));
+  const fx = new W.StageFx($('#fx'));
   function refreshRoll() {
     const parts = [];
     for (let i = 0; i < state.count; i++) {
@@ -442,6 +529,8 @@
           <select id="s${i}-species" data-k="species" aria-label="동물">${speciesOpts}</select>
           <input type="color" id="s${i}-outfit" data-k="outfit" value="${s.outfit}" aria-label="옷 색"></div>
         <div class="row"><span>파트</span><select id="s${i}-line" data-k="lineId" class="line-sel" aria-label="파트"></select></div>
+        <div class="row"><span>성격</span><select id="s${i}-personality" data-k="personality" aria-label="성격">
+          ${Object.entries(PERSONALITY).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}<option value="custom">직접 조절</option></select></div>
         <div class="row"><span>옥타브</span><select id="s${i}-octave" data-k="octave" aria-label="옥타브">
           <option value="-1">한 옥타브 낮게</option><option value="0">악보대로</option><option value="1">한 옥타브 높게</option></select></div>
         <details class="voice-more" id="s${i}-more"><summary>목소리 다듬기<span class="chev down" aria-hidden="true"></span></summary>
@@ -450,6 +539,7 @@
         </details>
         <div class="toggles"><button type="button" class="btn" data-t="mute">음소거</button><button type="button" class="btn" data-t="solo">솔로</button><button type="button" class="btn btn-tonal test" data-t="test">목소리 듣기</button></div>`;
       card.querySelector('[data-k=octave]').value = String(s.octave);
+      card.querySelector('[data-k=personality]').value = PERSONALITY[s.personality] ? s.personality : 'custom';
       card.addEventListener('input', e => onSingerInput(i, e.target, false));
       card.addEventListener('change', e => onSingerInput(i, e.target, true));
       card.addEventListener('click', e => {
@@ -477,6 +567,22 @@
     if (s[k] === v) return;
     s[k] = v;
     const card = $('#singers').children[i];
+    if (k === 'personality') {
+      // 성격을 고르면 목소리 값과 몸짓을 한꺼번에 바꾼다
+      const pr = PERSONALITY[v];
+      if (pr) {
+        Object.assign(s, pr.voice);
+        for (const [vk, vv] of Object.entries(pr.voice)) { const el = card.querySelector(`[data-k=${vk}]`); if (el) el.value = vv; }
+      }
+      applyCritterLooks();
+      restartSoon();
+      savePrefs();
+      return;
+    }
+    if (['formant', 'chirp', 'vibrato', 'brightness', 'breath'].includes(k) && s.personality !== 'custom') {
+      s.personality = 'custom';
+      card.querySelector('[data-k=personality]').value = 'custom';
+    }
     if (k === 'outfit') { card.style.borderLeftColor = v; critters[i] && critters[i].setOutfit(v); refreshRoll(); }
     if (k === 'species' && critters[i]) critters[i].setSpecies(v);
     if (k === 'species' || k === 'outfit') buildWaiting();
@@ -577,6 +683,20 @@
       (song.chords ? ' (악보의 코드 진행 사용)' : ''), 'ok');
   }
 
+  function applyScene() {
+    $('#stage').dataset.scene = state.stage.scene;
+    fx.setScene(state.stage.scene);
+  }
+  function refreshStageControls() {
+    const mark = (sel, val) => document.querySelectorAll(sel + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(val)));
+    mark('#sceneChips', state.stage.scene);
+    mark('#accSeg', state.stage.accomp);
+    mark('#danceSeg', state.stage.dance);
+    $('#optGreet').checked = state.stage.greet;
+    $('#optApplause').checked = state.stage.applause;
+    $('#optSize').checked = state.stage.sizeByVoice;
+  }
+
   function refreshStyleSeg() {
     document.querySelectorAll('#styleSeg button').forEach(b => b.classList.toggle('on', b.dataset.style === state.harmonyStyle));
   }
@@ -614,6 +734,7 @@
   }
 
   async function loadFile(file) {
+    ensureCtx(); // 사용자가 고른 순간에 소리를 켜 둬야 인사 소리가 나요
     try {
       const name = file.name.toLowerCase();
       let song;
@@ -640,6 +761,7 @@
   }
 
   function loadText(text, label) {
+    ensureCtx();
     try { setSong(W.Score.parseTextScore(text), label); } catch (err) { msg('악보를 읽지 못했어요.\n' + err.message, 'err'); }
   }
 
@@ -674,6 +796,7 @@
       const off = new OfflineAudioContext(2, Math.ceil(sr * secs), sr);
       const bus = buildBus(off);
       for (const { s, line } of act) W.Voice.singLine(off, bus.input, line, voiceOpts(s), 0, 0.05, state.speed);
+      startAccomp(off, bus.input, 0, 0.05);
       const rendered = await off.startRendering();
       if (lastExportUrl) URL.revokeObjectURL(lastExportUrl);
       const url = lastExportUrl = URL.createObjectURL(encodeWav(rendered));
@@ -731,7 +854,7 @@
     const drop = $('#drop');
     ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
     ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
-    drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+    drop.addEventListener('drop', e => { e.stopPropagation(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
     document.addEventListener('dragover', e => e.preventDefault());
     document.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) loadFile(f); });
 
@@ -741,6 +864,24 @@
       loadText(text, '예제 악보');
     }));
     $('#applyText').addEventListener('click', () => loadText($('#textScore').value, '텍스트 악보'));
+
+    // 무대 꾸미기
+    const segBind = (sel, key, parse, after) => document.querySelectorAll(sel + ' button').forEach(b => b.addEventListener('click', () => {
+      state.stage[key] = parse(b.dataset.v);
+      refreshStageControls();
+      savePrefs();
+      if (after) after();
+    }));
+    segBind('#sceneChips', 'scene', v => v, applyScene);
+    segBind('#accSeg', 'accomp', v => v, () => restartSoon());
+    segBind('#danceSeg', 'dance', v => +v, applyCritterLooks);
+    [['#optGreet', 'greet'], ['#optApplause', 'applause'], ['#optSize', 'sizeByVoice']].forEach(([sel, key]) => {
+      $(sel).addEventListener('change', e => {
+        state.stage[key] = e.target.checked;
+        savePrefs();
+        if (key === 'sizeByVoice') refreshCritterTags();
+      });
+    });
 
     document.querySelectorAll('#countSeg button').forEach(b => b.addEventListener('click', () => setCount(+b.dataset.n)));
     $('#autoAssign').addEventListener('click', () => { state.lines = state.lines.filter(l => !l.auto); refreshLineSelects(); autoAssign(); });
@@ -768,6 +909,8 @@
   buildWaiting();
   setPlayIcon(false);
   refreshStyleSeg();
+  refreshStageControls();
+  applyScene();
   $('#textScore').value = window.SAMPLE_SCORES.twinkle;
   showScreen('upload');
   requestAnimationFrame(loop);

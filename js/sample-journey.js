@@ -5,6 +5,7 @@ window.SAMPLE_SCORES.journey = `# Journey of dreaming — LeeJinAh (Scored by Da
 # 메인 보컬 선율 + 악보의 코드 진행으로 알토·테너·베이스 화음을 자동으로 만들어요.
 제목: Journey of dreaming
 빠르기: 88
+박자: 6/8
 화음: 메인 보컬
 
 메인 보컬: G3:0.5 D4:0.5 Bb3:0.5 C4:1 R:1 | D4:0.5 Bb3:0.5 C4:0.5 G4:0.5 Eb4:0.5 | D4:0.5 F4:0.5 Bb3:0.5 C4:0.5 R:4 | G3:0.5 D4:0.5 Bb3:0.5 C4:1 R:1

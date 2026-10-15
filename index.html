@@ -83,6 +83,7 @@
 
       <div class="stage" id="stage">
         <div class="sky" aria-hidden="true"><div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div></div>
+        <canvas class="fx" id="fx" aria-hidden="true"></canvas>
         <div class="lyric-bar empty" id="lyricBar"><p class="lyric-line" id="lyricLine"></p></div>
         <div class="critters" id="critters"></div>
         <div class="grass" aria-hidden="true"></div>
@@ -103,6 +104,37 @@
       </div>
 
       <div class="msg" role="status"></div>
+
+      <section class="group" aria-labelledby="decoTitle">
+        <h2 class="group-title" id="decoTitle">무대 꾸미기</h2>
+        <div class="card list settings">
+          <div class="set-row col">
+            <span>배경</span>
+            <div class="chips" id="sceneChips" role="group" aria-label="배경">
+              <button type="button" class="chip" data-v="day"><i style="--sw:#9fd8ff"></i>맑은 낮</button>
+              <button type="button" class="chip" data-v="sunset"><i style="--sw:#ff9f8a"></i>노을</button>
+              <button type="button" class="chip" data-v="night"><i style="--sw:#23305a"></i>밤하늘</button>
+              <button type="button" class="chip" data-v="spring"><i style="--sw:#ffc1d6"></i>벚꽃</button>
+              <button type="button" class="chip" data-v="winter"><i style="--sw:#dfe8f2"></i>겨울 눈</button>
+            </div>
+          </div>
+          <div class="set-row col">
+            <span>반주</span>
+            <div class="seg" id="accSeg" role="group" aria-label="반주">
+              <button type="button" data-v="none">없음</button><button type="button" data-v="piano">피아노</button><button type="button" data-v="guitar">기타</button><button type="button" data-v="musicbox">오르골</button>
+            </div>
+          </div>
+          <div class="set-row col">
+            <span>춤</span>
+            <div class="seg" id="danceSeg" role="group" aria-label="춤">
+              <button type="button" data-v="0">얌전히</button><button type="button" data-v="1">보통</button><button type="button" data-v="2">신나게</button>
+            </div>
+          </div>
+          <label class="set-row switch-row" for="optGreet"><span>등장할 때 동물어로 인사</span><input type="checkbox" class="switch" id="optGreet"></label>
+          <label class="set-row switch-row" for="optApplause"><span>끝나면 인사·박수·꽃가루</span><input type="checkbox" class="switch" id="optApplause"></label>
+          <label class="set-row switch-row" for="optSize"><span>낮은 목소리일수록 몸집 크게</span><input type="checkbox" class="switch" id="optSize"></label>
+        </div>
+      </section>
 
       <section class="group" aria-labelledby="rollTitle">
         <h2 class="group-title" id="rollTitle">노래 흐름</h2>
@@ -162,6 +194,8 @@
   <script src="js/midi.js"></script>
   <script src="js/harmony.js"></script>
   <script src="js/voice.js"></script>
+  <script src="js/accomp.js"></script>
+  <script src="js/fx.js"></script>
   <script src="js/characters.js"></script>
   <script src="js/pianoroll.js"></script>
   <script src="js/samples.js"></script>

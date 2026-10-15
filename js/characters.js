@@ -141,6 +141,8 @@
       this.blinkUntil = 0;
       this.bounceT = -1;
       this.lastEventIdx = -1;
+      this.bowT = -1;
+      this.seed = Math.random() * 6;
     }
 
     render() {
@@ -193,9 +195,9 @@
     }
 
     /**
-     * 매 프레임 호출. ev = 지금 부르는 음 (없으면 null), showBubble = 말풍선을 띄울지
+     * 매 프레임 호출. ev = 지금 부르는 음 (없으면 null), showBubble = 말풍선을 띄울지, beat = 노래의 박 위치(멈춰 있으면 null)
      */
-    update(now, ev, evIdx, songT, audioT, showBubble = true) {
+    update(now, ev, evIdx, songT, audioT, showBubble = true, beat = null) {
       const p = this.parts;
       let mouth = 0, round = 0, wide = 0.5;
       if (ev) {
@@ -218,19 +220,50 @@
       if (now > this.nextBlink) { this.blinkUntil = now + 130; this.nextBlink = now + 2000 + Math.random() * 3500; }
       this.setMouth(mouth, round, wide);
 
-      // 통통 튀기
-      let y = 0, sq = 1;
+      // ---------- 몸짓 ----------
+      const lvl = this.dance == null ? 1 : this.dance;          // 0 얌전히, 1 보통, 2 신나게
+      const md = this.mood || { amp: 1, tilt: 0, slow: 1, pump: 0 };
+      let y = 0, sq = 1, sway, armBase = 0, headY = 0;
+      // 음이 시작될 때 통통
       if (this.bounceT >= 0) {
         const k = (now - this.bounceT) / 260;
-        if (k < 1) { y = -Math.sin(k * Math.PI) * 9; sq = 1 + Math.sin(k * Math.PI) * 0.03; }
+        if (k < 1) { y = -Math.sin(k * Math.PI) * [5, 9, 11][lvl] * md.amp; sq = 1 + Math.sin(k * Math.PI) * 0.03; }
       }
-      const sway = Math.sin(songT * Math.PI * 1.0) * (ev ? 4 : 1.5);
+      if (beat != null) {
+        // 박자에 맞춰 흔들기
+        const ph = beat / md.slow;
+        const swing = Math.sin(ph * Math.PI);
+        sway = swing * [2, 4.5, 8][lvl] * md.amp;
+        if (lvl === 2) {
+          y -= Math.abs(swing) * 7 * md.amp;
+          armBase = 22 * Math.abs(swing) * md.amp;
+        }
+        armBase += md.pump * 8 * Math.abs(swing);
+      } else {
+        // 기다리는 동안 숨쉬기
+        sway = Math.sin(now / 900 + this.seed) * 1.5;
+        sq *= 1 + Math.sin(now / 700 + this.seed) * 0.008;
+      }
+      sway += md.tilt;
+      // 노래가 끝나면 꾸벅 인사
+      if (this.bowT >= 0) {
+        const k = (now - this.bowT) / 1500;
+        if (k < 1) {
+          const bw = Math.sin(Math.min(1, k * 1.25) * Math.PI);
+          headY = 22 * bw; sq *= 1 - 0.06 * bw; sway *= 1 - bw; armBase -= 12 * bw;
+          if (bw > 0.2) this.setEyes('happy');
+        } else this.bowT = -1;
+      }
       p.root.setAttribute('transform', `translate(0 ${y.toFixed(2)}) translate(100 240) scale(${(2 - sq).toFixed(3)} ${sq.toFixed(3)}) translate(-100 -240)`);
-      p.head.setAttribute('transform', `rotate(${sway.toFixed(2)} 100 160)`);
-      const arm = ev ? 10 + mouth * 25 : 0;
+      p.head.setAttribute('transform', `translate(0 ${headY.toFixed(1)}) rotate(${sway.toFixed(2)} 100 160)`);
+      const arm = (ev ? 10 + mouth * 25 : 0) + armBase;
       p.armL.setAttribute('transform', `rotate(${20 + arm} 62 178)`);
       p.armR.setAttribute('transform', `rotate(${-20 - arm} 138 178)`);
+      this.wrap.classList.toggle('singing', !!ev);
     }
+
+    bow() { this.bowT = performance.now(); this.say(''); }
+    setScale(k) { this.wrap.style.setProperty('--scale', k.toFixed(3)); }
 
     idle() { this.say(''); this.lastEventIdx = -1; }
     destroy() { this.wrap.remove(); }
