@@ -161,6 +161,8 @@
   function startPlayback(offset) {
     const ctx = ensureCtx();
     stopVoices();
+    for (const c of critters) c.idle();
+    lyric.holdUntil = -1;
     computeDuration();
     if (offset >= state.duration) offset = 0;
     const when = ctx.currentTime + 0.08;
@@ -281,24 +283,122 @@
       updateStartOverlay();
     }
     const audioT = state.playing ? state.ctx.currentTime : 0;
-    critters.forEach((c, i) => {
+    // 1) 가수마다 지금 부르는 음
+    const cur = critters.map((c, i) => {
       const hx = state.playing ? state.handles.find(x => x.i === i) : null;
       let ev = null, idx = -1;
       if (hx) {
         const evs = hx.h.events;
         while (hx.ptr < evs.length && evs[hx.ptr].e < audioT) hx.ptr++;
         if (hx.ptr < evs.length && evs[hx.ptr].s <= audioT) { ev = evs[hx.ptr]; idx = hx.ptr; }
-        if (!ev && hx.ptr > 0 && hx.ptr < evs.length && evs[hx.ptr].s - audioT < 0.06) { /* 쉼 직전 */ }
         if (!ev && (hx.ptr >= evs.length || evs[hx.ptr].s - audioT > 0.25)) c.say('');
       }
-      c.update(now, ev, idx, pos, audioT);
+      return { ev, idx, text: ev ? (ev.text || '').trim() : '' };
     });
+    // 2) 무대 위 가사 줄에 보일 글자: 이끄는 가수 것, 그가 쉬면 다른 가수들이 가장 많이 부르는 것
+    const lead = leadSingerIndex();
+    let topText = lead >= 0 && cur[lead] ? cur[lead].text : '';
+    if (!topText) {
+      const count = {};
+      for (const x of cur) if (x.text) count[x.text] = (count[x.text] || 0) + 1;
+      topText = Object.keys(count).sort((a, b) => count[b] - count[a])[0] || '';
+    }
+    // 3) 말풍선은 가사 줄과 다른 가사를 부를 때만
+    critters.forEach((c, i) => {
+      const x = cur[i];
+      c.update(now, x.ev, x.idx, pos, audioT, i !== lead && !!x.text && x.text !== topText);
+    });
+    renderLyrics(pos, topText);
     roll.draw(pos);
     if (!seekDragging) $('#seek').value = state.duration ? Math.round(pos / state.duration * 1000) : 0;
     $('#timeNow').textContent = fmt(pos);
     $('#timeLeft').textContent = '-' + fmt(state.duration - pos);
   }
   function loop() { drawFrame(); requestAnimationFrame(loop); }
+
+  // ---------- 가사 한 줄 (노래방처럼) ----------
+  const lyric = { key: '', phrases: [], shown: -2, spans: [], holdText: '', holdUntil: -1 };
+
+  // 가사를 이끄는 가수: 가사가 있는 파트를 맡은 첫 번째 가수
+  function leadSingerIndex() {
+    let first = -1;
+    for (let i = 0; i < state.count; i++) {
+      const line = lineById(state.singers[i].lineId);
+      if (!line || effVolume(state.singers[i]) === 0) continue;
+      if (line.hasLyrics) return i;
+      if (first < 0) first = i;
+    }
+    return first;
+  }
+
+  // 쉼표(0.45초 넘게 쉼)나 너무 길어지면 줄을 나눈다
+  function buildPhrases(line) {
+    const phrases = [];
+    if (!line || !line.hasLyrics) return phrases;
+    let cur = null, lastEnd = -1;
+    for (const n of line.notes) {
+      const end = n.t + n.d;
+      if (!n.lyric) {
+        if (cur && n.t - lastEnd < 0.06) { cur.sylls[cur.sylls.length - 1].end = end; cur.end = end; lastEnd = end; }
+        continue;
+      }
+      const prevText = cur && cur.sylls.length ? cur.sylls[cur.sylls.length - 1].text : '';
+      const long = cur && ((cur.sylls.length >= 14 && /\s$/.test(prevText)) || cur.sylls.length >= 22);
+      if (!cur || n.t - lastEnd > 0.45 || long) { cur = { start: n.t, end, sylls: [] }; phrases.push(cur); }
+      cur.sylls.push({ t: n.t, end, text: n.lyric });
+      cur.end = end; lastEnd = end;
+    }
+    return phrases;
+  }
+
+  function renderLyrics(pos, fallbackText) {
+    const bar = $('#lyricBar'), lineEl = $('#lyricLine');
+    const li = leadSingerIndex();
+    const line = li >= 0 ? lineById(state.singers[li].lineId) : null;
+    const key = line ? line.id : '';
+    if (key !== lyric.key) { lyric.key = key; lyric.phrases = buildPhrases(line); lyric.shown = -2; }
+    const ph = lyric.phrases;
+    // 지금 부르는 줄, 없으면 곧 부를 줄 (멈춰 있을 땐 미리 보여 준다)
+    let p = -1;
+    for (let k = 0; k < ph.length; k++) if (pos < ph[k].end + 0.3) { p = k; break; }
+    if (p >= 0 && state.playing && ph[p].start - pos > 2.5) p = -1;
+
+    if (p >= 0) {
+      if (lyric.shown !== p) {
+        lyric.shown = p;
+        lineEl.textContent = '';
+        lyric.spans = ph[p].sylls.map(sy => {
+          const sp = document.createElement('span');
+          sp.textContent = sy.text;
+          lineEl.appendChild(sp);
+          return sp;
+        });
+      }
+      ph[p].sylls.forEach((sy, k) => {
+        const sp = lyric.spans[k];
+        const now = pos >= sy.t && pos < sy.end;
+        sp.className = now ? 'now' : pos >= sy.end ? 'done' : '';
+      });
+      bar.classList.remove('empty');
+    } else if (fallbackText || pos < lyric.holdUntil) {
+      // 허밍 사이의 짧은 숨에 깜빡이지 않게 잠깐 유지
+      if (fallbackText) { lyric.holdText = fallbackText; lyric.holdUntil = pos + 0.6; }
+      fallbackText = lyric.holdText;
+      // 가사가 없는 곳의 허밍이나 가사 없는 악보: 지금 음절 하나만
+      if (lyric.shown !== -1 || lineEl.textContent !== fallbackText) {
+        lyric.shown = -1;
+        lineEl.innerHTML = '';
+        const sp = document.createElement('span');
+        sp.className = 'now';
+        sp.textContent = fallbackText;
+        lineEl.appendChild(sp);
+        lyric.spans = [sp];
+      }
+      bar.classList.remove('empty');
+    } else {
+      bar.classList.add('empty');
+    }
+  }
 
   // ---------- 피아노 롤 ----------
   const roll = new W.PianoRoll($('#roll'), t => seek(t));

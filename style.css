@@ -31,6 +31,9 @@
   --tag-bg: rgba(255, 255, 255, .94);
   --tag-ink: #191f28;
   --tag-sub: #6b7684;
+  --lyric-bg: rgba(255, 255, 255, .84);
+  --lyric-ink: #191f28;
+  --lyric-dim: #b0b8c1;
 
   --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -45,6 +48,7 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, .3); --glass: rgba(16, 16, 19, .72);
     --roll-bg: #1d1d22; --roll-grid: rgba(255, 255, 255, .07);
     --sky1: #23305a; --sky2: #4a5b8f; --grass1: #3f7a45; --grass2: #31633a; --sun: #fff3c9; --cloud: rgba(230, 236, 255, .5);
+    --lyric-bg: rgba(24, 24, 30, .72); --lyric-ink: #ffffff; --lyric-dim: #7c7c88;
     color-scheme: dark;
   }
 }
@@ -55,6 +59,7 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .3); --glass: rgba(16, 16, 19, .72);
   --roll-bg: #1d1d22; --roll-grid: rgba(255, 255, 255, .07);
   --sky1: #23305a; --sky2: #4a5b8f; --grass1: #3f7a45; --grass2: #31633a; --sun: #fff3c9; --cloud: rgba(230, 236, 255, .5);
+  --lyric-bg: rgba(24, 24, 30, .72); --lyric-ink: #ffffff; --lyric-dim: #7c7c88;
   color-scheme: dark;
 }
 
@@ -173,6 +178,24 @@ textarea {
 .c2 { width: 66px; top: 84px; left: -100px; animation-delay: -18s; animation-duration: 55s; }
 @keyframes drift { to { transform: translateX(1000px); } }
 .grass { position: absolute; left: 0; right: 0; bottom: 0; height: 26%; background: linear-gradient(var(--grass1), var(--grass2)); z-index: 1; pointer-events: none; }
+
+/* 무대 위 가사 한 줄 (노래방처럼 부르는 글자를 파랗게) */
+.lyric-bar {
+  position: absolute; top: 12px; left: 50%; z-index: 6; transform: translateX(-50%);
+  width: max-content; max-width: calc(100% - 24px);
+  background: var(--lyric-bg); border-radius: 16px; padding: 8px 16px;
+  -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 23, 51, .1);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.lyric-bar.empty { opacity: 0; transform: translateX(-50%) translateY(-6px); pointer-events: none; }
+.lyric-line {
+  margin: 0; text-align: center; font-size: clamp(16px, 4.4vw, 22px); font-weight: 700; line-height: 1.4;
+  letter-spacing: -0.02em; color: var(--lyric-dim); white-space: pre-wrap; text-wrap: balance;
+}
+.lyric-line span { transition: color .12s ease; }
+.lyric-line span.done { color: var(--lyric-ink); }
+.lyric-line span.now { color: var(--accent); }
 
 .critters {
   position: absolute; left: 0; right: 0; bottom: 5%; z-index: 2;

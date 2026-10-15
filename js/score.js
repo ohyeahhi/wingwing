@@ -197,7 +197,9 @@
               }
               const lyrics = kids(el, 'lyric');
               const ly = lyrics.find(l => (l.getAttribute('number') || '1') === '1') || lyrics[0];
-              const lyric = ly ? kids(ly, 'text').map(t => t.textContent).join('').trim() || null : null;
+              let lyric = ly ? kids(ly, 'text').map(t => t.textContent).join('').trim() || null : null;
+              const syllabic = ly && txt(ly, 'syllabic');
+              if (lyric && (!syllabic || syllabic === 'single' || syllabic === 'end')) lyric += ' ';
               const note = { b: absStart, bd: dur, midi, lyric };
               if (!tracks[tKey]) { tracks[tKey] = { pid, pi, staff, voice, notes: [] }; trackOrder.push(tKey); }
               tracks[tKey].notes.push(note);
@@ -315,13 +317,19 @@
     const out = [];
     for (const tok of str.split(/\s+/).filter(Boolean)) {
       if (/^[_\-~]$/.test(tok)) { out.push(null); continue; } // 늘임표: 앞 모음 이어 부르기
+      // 낱말의 마지막 음절 뒤에 빈칸을 붙여 둔다 (화면에 가사를 띄어 쓸 때 쓰고, 발음에는 영향 없음)
+      let last = -1;
       if (/[가-힣]/.test(tok)) {
-        for (const ch of tok) if (/[가-힣]/.test(ch)) out.push(ch);
+        for (const ch of tok) {
+          if (/[가-힣]/.test(ch)) { out.push(ch); last = out.length - 1; }
+          else if (/[-_~]/.test(ch)) out.push(null); // 낱말 안의 "-" 도 앞 모음 늘이기
+        }
       } else if (/[぀-ヿ]/.test(tok)) {
-        for (const ch of tok) if (/[぀-ヿ]/.test(ch) && !'ゃゅょャュョっッー'.includes(ch)) out.push(ch);
+        for (const ch of tok) if (/[぀-ヿ]/.test(ch) && !'ゃゅょャュョっッー'.includes(ch)) { out.push(ch); last = out.length - 1; }
       } else {
-        for (const part of tok.split('-')) if (part) out.push(part);
+        for (const part of tok.split('-')) if (part) { out.push(part); last = out.length - 1; }
       }
+      if (last >= 0) out[last] += ' ';
     }
     return out;
   }

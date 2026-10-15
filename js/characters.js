@@ -193,9 +193,9 @@
     }
 
     /**
-     * 매 프레임 호출. ev = 지금 부르는 음 (없으면 null)
+     * 매 프레임 호출. ev = 지금 부르는 음 (없으면 null), showBubble = 말풍선을 띄울지
      */
-    update(now, ev, evIdx, songT, audioT) {
+    update(now, ev, evIdx, songT, audioT, showBubble = true) {
       const p = this.parts;
       let mouth = 0, round = 0, wide = 0.5;
       if (ev) {
@@ -208,7 +208,8 @@
         if (evIdx !== this.lastEventIdx) {
           this.lastEventIdx = evIdx;
           if (!ev.cont) { this.bounceT = now; this.spawnNote(); }
-          this.say(ev.text);
+          // 다른 가수와 같은 가사면 무대 위 가사 줄에만 보이고 말풍선은 띄우지 않는다
+          this.say(showBubble ? (ev.text || '').trim() : '');
         }
         this.setEyes(ev.long && into > 0.15 ? 'happy' : (now < this.blinkUntil ? 'blink' : 'open'));
       } else {
