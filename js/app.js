@@ -317,7 +317,7 @@
   function loop() { drawFrame(); requestAnimationFrame(loop); }
 
   // ---------- 가사 한 줄 (노래방처럼) ----------
-  const lyric = { key: '', phrases: [], shown: -2, spans: [], holdText: '', holdUntil: -1 };
+  const lyric = { line: null, phrases: [], shown: -2, spans: [], holdText: '', holdUntil: -1 };
 
   // 가사를 이끄는 가수: 가사가 있는 파트를 맡은 첫 번째 가수
   function leadSingerIndex() {
@@ -355,8 +355,8 @@
     const bar = $('#lyricBar'), lineEl = $('#lyricLine');
     const li = leadSingerIndex();
     const line = li >= 0 ? lineById(state.singers[li].lineId) : null;
-    const key = line ? line.id : '';
-    if (key !== lyric.key) { lyric.key = key; lyric.phrases = buildPhrases(line); lyric.shown = -2; }
+    // 곡이 바뀌면 파트 id(L0 …)가 같아도 다른 파트이므로 id가 아니라 파트 자체로 비교한다
+    if (line !== lyric.line) { lyric.line = line; lyric.phrases = buildPhrases(line); lyric.shown = -2; }
     const ph = lyric.phrases;
     // 지금 부르는 줄, 없으면 곧 부를 줄 (멈춰 있을 땐 미리 보여 준다)
     let p = -1;
