@@ -246,6 +246,9 @@ input[type=range] { accent-color: var(--accent); width: 100%; min-width: 0; marg
 /* 합창단 */
 .choir-head { padding: 12px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .head-actions { display: flex; gap: 8px; }
+.style-row { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding-top: 10px; border-top: 1px solid var(--line); }
+.style-label { font-size: 15px; font-weight: 600; color: var(--ink); }
 .seg {
   display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; gap: 2px;
   background: var(--fill); border-radius: 12px; min-width: min(220px, 100%);

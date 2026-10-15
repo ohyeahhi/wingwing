@@ -18,6 +18,8 @@
     lines: [],        // song.lines + 자동 화음 라인
     singers: [],
     count: 4,
+    harmonyStyle: 'classic',  // 자동 화음 스타일
+    chordTimeline: [],        // 코드 진행 (반주에 씀)
     speed: 1,
     transpose: 0,
     reverb: 0.25,
@@ -40,11 +42,13 @@
       lineId: null, mute: false, solo: false,
     }));
     if (saved && saved.count >= 1 && saved.count <= 4) state.count = saved.count;
+    if (saved && saved.harmonyStyle && W.Harmony.STYLES.includes(saved.harmonyStyle)) state.harmonyStyle = saved.harmonyStyle;
   }
   function savePrefs() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         count: state.count,
+        harmonyStyle: state.harmonyStyle,
         singers: state.singers.map(({ lineId, mute, solo, ...rest }) => rest),
       }));
     } catch (e) { /* 저장 불가 환경 */ }
@@ -306,7 +310,9 @@
     // 3) 말풍선은 가사 줄과 다른 가사를 부를 때만
     critters.forEach((c, i) => {
       const x = cur[i];
-      c.update(now, x.ev, x.idx, pos, audioT, i !== lead && !!x.text && x.text !== topText);
+      const li = lineById(state.singers[i].lineId);
+      // 자동 화음(우~, 둠 같은 반주 소리 포함)은 말풍선 없이
+      c.update(now, x.ev, x.idx, pos, audioT, i !== lead && !!x.text && x.text !== topText && !(li && li.auto));
     });
     renderLyrics(pos, topText);
     roll.draw(pos);
@@ -321,14 +327,15 @@
 
   // 가사를 이끄는 가수: 가사가 있는 파트를 맡은 첫 번째 가수
   function leadSingerIndex() {
-    let first = -1;
+    // 자동 화음 파트보다 원래 악보 파트를, 그중에서도 가사가 있는 파트를 먼저
+    let best = -1, bestScore = -1;
     for (let i = 0; i < state.count; i++) {
       const line = lineById(state.singers[i].lineId);
       if (!line || effVolume(state.singers[i]) === 0) continue;
-      if (line.hasLyrics) return i;
-      if (first < 0) first = i;
+      const score = (line.auto ? 0 : 2) + (line.hasLyrics ? 1 : 0);
+      if (score > bestScore) { best = i; bestScore = score; }
     }
-    return first;
+    return best;
   }
 
   // 쉼표(0.45초 넘게 쉼)나 너무 길어지면 줄을 나눈다
@@ -545,13 +552,18 @@
     restartSoon();
   }
 
+  const STYLE_LABEL = { classic: '클래식', jazz: '재즈', acappella: '아카펠라' };
   function autoHarmony(silent, preferred) {
-    const melodyLine = preferred || lineById(state.singers[0].lineId) || state.lines.find(l => !l.auto);
+    let melodyLine = preferred || lineById(state.singers[0].lineId);
+    if (!melodyLine || melodyLine.auto) melodyLine = lineById(state.harmonyMelodyId) || state.lines.find(l => !l.auto);
     if (!melodyLine) return;
     const want = Math.max(1, state.count - 1);
     state.lines = state.lines.filter(l => !l.auto);
     const song = state.song || {};
-    const harm = W.Harmony.harmonize(melodyLine, Math.min(3, want), song.key, { chords: song.chords, beatToSec: song.beatToSec });
+    const res = W.Harmony.harmonize(melodyLine, Math.min(3, want), song.key, { chords: song.chords, beatToSec: song.beatToSec, style: state.harmonyStyle });
+    const harm = res.lines;
+    state.harmonyMelodyId = melodyLine.id;
+    if (res.chords.length) state.chordTimeline = res.chords;
     harm.forEach((h, k) => { h.id = 'H' + k; state.lines.push(h); });
     state.singers[0].lineId = melodyLine.id;
     for (let i = 1; i < 4; i++) state.singers[i].lineId = harm[i - 1] ? harm[i - 1].id : null;
@@ -561,8 +573,12 @@
     refreshRoll();
     computeDuration();
     restartSoon();
-    if (!silent) msg(`"${melodyLine.name}" 선율에 맞춰 ${harm.map(h => h.name.replace('자동 화음 · ', '')).join('·')} 화음을 만들었어요.` +
+    if (!silent) msg(`"${melodyLine.name}" 선율에 맞춰 ${STYLE_LABEL[state.harmonyStyle]} 스타일로 ${harm.map(h => h.name.replace('자동 화음 · ', '')).join('·')} 화음을 만들었어요.` +
       (song.chords ? ' (악보의 코드 진행 사용)' : ''), 'ok');
+  }
+
+  function refreshStyleSeg() {
+    document.querySelectorAll('#styleSeg button').forEach(b => b.classList.toggle('on', b.dataset.style === state.harmonyStyle));
   }
 
   // ---------- 악보 불러오기 ----------
@@ -572,8 +588,11 @@
     state.lines = song.lines.slice();
     state.pos = 0;
     state.finished = false;
+    state.harmonyMelodyId = null;
     $('#songTitle').textContent = song.title;
     autoAssign();
+    const top = lineById(state.singers[0].lineId) || song.lines[0];
+    state.chordTimeline = W.Harmony.chordProgression(top, song.key, song.chords);
     let note = '';
     const hl = song.harmonizeLine && song.lines.find(l => l.name === song.harmonizeLine);
     if (hl) {
@@ -726,6 +745,13 @@
     document.querySelectorAll('#countSeg button').forEach(b => b.addEventListener('click', () => setCount(+b.dataset.n)));
     $('#autoAssign').addEventListener('click', () => { state.lines = state.lines.filter(l => !l.auto); refreshLineSelects(); autoAssign(); });
     $('#autoHarm').addEventListener('click', () => autoHarmony(false));
+    document.querySelectorAll('#styleSeg button').forEach(b => b.addEventListener('click', () => {
+      state.harmonyStyle = b.dataset.style;
+      refreshStyleSeg();
+      savePrefs();
+      // 자동 화음을 쓰고 있으면 새 스타일로 다시 만든다
+      if (state.lines.some(l => l.auto)) autoHarmony(false);
+    }));
 
     document.addEventListener('keydown', e => {
       if (e.code === 'Space' && !$('#screenStage').hidden && !/INPUT|TEXTAREA|SELECT|BUTTON|SUMMARY/.test(document.activeElement.tagName)) {
@@ -741,6 +767,7 @@
   bind();
   buildWaiting();
   setPlayIcon(false);
+  refreshStyleSeg();
   $('#textScore').value = window.SAMPLE_SCORES.twinkle;
   showScreen('upload');
   requestAnimationFrame(loop);
