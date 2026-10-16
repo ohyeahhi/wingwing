@@ -1,4 +1,4 @@
-// 무대 효과: 배경에 따라 꽃잎·눈·별·반딧불이, 노래가 끝나면 꽃가루 + 박수 소리
+// 무대 효과: 배경에 따라 꽃잎·눈·별·반딧불이·물비늘, 노래가 끝나면 꽃가루 + 박수 소리
 (function (W) {
   'use strict';
 
@@ -44,6 +44,9 @@
         for (let i = 0; i < 60 * n; i++) this.parts.push({ k: 'snow', x: R() * w, y: R() * h, vx: (R() - 0.5) * 8, vy: 12 + R() * 20, r: 1 + R() * 2.4, a: R() * 6 });
       } else if (this.scene === 'night') {
         for (let i = 0; i < 46; i++) this.parts.push({ k: 'star', x: R() * w, y: R() * h * 0.55, r: 0.6 + R() * 1.3, a: R() * 6, va: 1 + R() * 2 });
+      } else if (this.scene === 'beach') {
+        // 바다 띠(무대 높이의 40~66%) 위에서 반짝이는 물비늘
+        for (let i = 0; i < 22 * n + 6; i++) this.parts.push({ k: 'glint', x: R() * w, y: h * (0.42 + R() * 0.22), a: R() * 6, va: 1.5 + R() * 2.5, r: 2 + R() * 3 });
       } else if (this.scene === 'sunset') {
         for (let i = 0; i < 14 * n; i++) this.parts.push({ k: 'fly', x: R() * w, y: h * (0.35 + R() * 0.5), a: R() * 6, va: 0.6 + R(), r: 1.6 + R() * 1.2 });
       }
@@ -74,6 +77,15 @@
           c.globalAlpha = 0.45 + 0.45 * Math.sin(p.a);
           c.fillStyle = '#fffbe8';
           c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.fill();
+          continue;
+        }
+        if (p.k === 'glint') {
+          p.a += p.va * dt;
+          const k = Math.max(0, Math.sin(p.a));
+          if (k < 0.05) { if (Math.sin(p.a - p.va * dt) > 0) { p.x = Math.random() * w; } continue; }
+          c.globalAlpha = 0.85 * k;
+          c.fillStyle = '#ffffff';
+          c.beginPath(); c.ellipse(p.x, p.y, p.r * 1.6 * k, 0.9, 0, 0, Math.PI * 2); c.fill();
           continue;
         }
         if (p.k === 'fly') {

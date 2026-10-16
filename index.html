@@ -92,11 +92,30 @@
       </header>
 
       <div class="stage" id="stage">
-        <div class="sky" aria-hidden="true"><div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div></div>
-        <canvas class="fx" id="fx" aria-hidden="true"></canvas>
-        <div class="lyric-bar empty" id="lyricBar"><p class="lyric-line" id="lyricLine"></p></div>
+        <!-- 뒤에서 앞으로: 하늘·바다 → 언덕(모래) → 나무 무대 → 관객 → 가수 → 별·눈·꽃가루 → 커튼 → 가사 -->
+        <div class="sky" aria-hidden="true"><div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div><div class="sea"></div></div>
+        <div class="ground" aria-hidden="true"></div>
+        <div class="deck" aria-hidden="true"></div>
+        <div class="apron" aria-hidden="true"></div>
+        <div class="crowd" aria-hidden="true">
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.9;--y:3"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><circle cx="12" cy="12" r="4.2"/><circle cx="28" cy="12" r="4.2"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.55;--y:0"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><path d="M11 15 12.5 5 19 11zM29 15 27.5 5 21 11z"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:1.15;--y:4"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><ellipse cx="15.5" cy="7" rx="3" ry="8" transform="rotate(-10 15.5 7)"/><ellipse cx="24.5" cy="7" rx="3" ry="8" transform="rotate(10 24.5 7)"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.7;--y:1"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><ellipse cx="20" cy="22" rx="11" ry="9"/><circle cx="13.5" cy="14" r="4.6"/><circle cx="26.5" cy="14" r="4.6"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:1;--y:0"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><ellipse cx="10.5" cy="20" rx="3.6" ry="7.5" transform="rotate(18 10.5 20)"/><ellipse cx="29.5" cy="20" rx="3.6" ry="7.5" transform="rotate(-18 29.5 20)"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.5;--y:3"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><path d="M28 19 36 21 28 24z"/><path d="M19 11c1-5 4-6 6-5-2 1-3 3-3 5z"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:1.2;--y:1"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><circle cx="12" cy="12" r="4.2"/><circle cx="28" cy="12" r="4.2"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.8;--y:2"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><path d="M11 15 12.5 5 19 11zM29 15 27.5 5 21 11z"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.6;--y:0"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><ellipse cx="15.5" cy="7" rx="3" ry="8" transform="rotate(-10 15.5 7)"/><ellipse cx="24.5" cy="7" rx="3" ry="8" transform="rotate(10 24.5 7)"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:1.1;--y:4"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><ellipse cx="10.5" cy="20" rx="3.6" ry="7.5" transform="rotate(18 10.5 20)"/><ellipse cx="29.5" cy="20" rx="3.6" ry="7.5" transform="rotate(-18 29.5 20)"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.85;--y:1"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><ellipse cx="20" cy="22" rx="11" ry="9"/><circle cx="13.5" cy="14" r="4.6"/><circle cx="26.5" cy="14" r="4.6"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:.65;--y:3"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><circle cx="12" cy="12" r="4.2"/><circle cx="28" cy="12" r="4.2"/></g></svg>
+          <svg class="fan" viewBox="0 0 40 50" style="--k:1;--y:0"><g class="arms"><path d="M9 39 5 21"/><path d="M31 39 35 21"/></g><path d="M3 52C3 37 10 31 20 31s17 6 17 21z"/><g class="hd"><circle cx="20" cy="20" r="10"/><path d="M11 15 12.5 5 19 11zM29 15 27.5 5 21 11z"/></g></svg>
+        </div>
         <div class="critters" id="critters"></div>
-        <div class="grass" aria-hidden="true"></div>
+        <canvas class="fx" id="fx" aria-hidden="true"></canvas>
+        <div class="curtains" aria-hidden="true"><div class="valance"></div><div class="drape l"></div><div class="drape r"></div></div>
+        <div class="lyric-bar empty" id="lyricBar"><p class="lyric-line" id="lyricLine"></p></div>
       </div>
 
       <div class="card player">
@@ -126,7 +145,30 @@
               <button type="button" class="chip" data-v="night"><i style="--sw:#23305a"></i>밤하늘</button>
               <button type="button" class="chip" data-v="spring"><i style="--sw:#ffc1d6"></i>벚꽃</button>
               <button type="button" class="chip" data-v="winter"><i style="--sw:#dfe8f2"></i>겨울 눈</button>
+              <button type="button" class="chip" data-v="beach"><i style="--sw:#3fb6e0"></i>여름 해변</button>
             </div>
+          </div>
+          <div class="set-row col">
+            <span>의상</span>
+            <div class="chips" id="costumeChips" role="group" aria-label="의상">
+              <button type="button" class="chip" data-v="auto">배경에 맞춰</button>
+              <button type="button" class="chip" data-v="none">기본</button>
+              <button type="button" class="chip" data-v="flower">🌸 꽃왕관</button>
+              <button type="button" class="chip" data-v="straw">👒 밀짚모자</button>
+              <button type="button" class="chip" data-v="bowtie">🎀 나비넥타이</button>
+              <button type="button" class="chip" data-v="santa">🎅 산타 모자</button>
+              <button type="button" class="chip" data-v="robe">성가대 가운</button>
+            </div>
+          </div>
+          <div class="set-row col">
+            <span>편곡</span>
+            <div class="chips" id="grooveChips" role="group" aria-label="편곡">
+              <button type="button" class="chip" data-v="original" title="악보 리듬 그대로">원곡</button>
+              <button type="button" class="chip" data-v="swing" title="통통 튀는 리듬, 걸어가는 베이스">🎷 스윙</button>
+              <button type="button" class="chip" data-v="bossa" title="살랑이는 리듬, 나일론 기타">🌴 보사노바</button>
+              <button type="button" class="chip" data-v="ballad" title="브러시 드럼과 잔잔한 피아노">🌙 재즈 발라드</button>
+            </div>
+            <p class="set-note" id="accNote" hidden>재즈 편곡에선 드럼·베이스·피아노(보사노바는 기타) 밴드가 반주해서 아래 반주 악기는 쉬어요.</p>
           </div>
           <div class="set-row col">
             <span>반주</span>
@@ -205,6 +247,7 @@
   <script src="js/harmony.js"></script>
   <script src="js/voice.js"></script>
   <script src="js/accomp.js"></script>
+  <script src="js/groove.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/characters.js"></script>
   <script src="js/pianoroll.js"></script>

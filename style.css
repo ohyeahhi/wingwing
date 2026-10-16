@@ -35,6 +35,13 @@
   --lyric-bg: rgba(255, 255, 255, .84);
   --lyric-ink: #191f28;
   --lyric-dim: #b0b8c1;
+  --wood1: #e2ac72;
+  --wood2: #c98b52;
+  --wood-edge: #9a6234;
+  --curtain1: #e5566a;
+  --curtain2: #b8394d;
+  --crowd: rgba(28, 34, 56, .86);
+  --spot: rgba(255, 246, 210, .30);
 
   --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", system-ui, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -50,6 +57,7 @@
     --roll-bg: #1d1d22; --roll-grid: rgba(255, 255, 255, .07);
     --sky1: #23305a; --sky2: #4a5b8f; --grass1: #3f7a45; --grass2: #31633a; --sun: #fff3c9; --cloud: rgba(230, 236, 255, .5);
     --lyric-bg: rgba(24, 24, 30, .72); --lyric-ink: #ffffff; --lyric-dim: #7c7c88; --seg-on: #45454f;
+    --wood1: #b9834f; --wood2: #9c6a3d; --wood-edge: #6e4424; --curtain1: #b9404f; --curtain2: #8c2c3b; --crowd: rgba(6, 8, 16, .88); --spot: rgba(255, 240, 200, .22);
     color-scheme: dark;
   }
 }
@@ -61,6 +69,7 @@
   --roll-bg: #1d1d22; --roll-grid: rgba(255, 255, 255, .07);
   --sky1: #23305a; --sky2: #4a5b8f; --grass1: #3f7a45; --grass2: #31633a; --sun: #fff3c9; --cloud: rgba(230, 236, 255, .5);
   --lyric-bg: rgba(24, 24, 30, .72); --lyric-ink: #ffffff; --lyric-dim: #7c7c88; --seg-on: #45454f;
+    --wood1: #b9834f; --wood2: #9c6a3d; --wood-edge: #6e4424; --curtain1: #b9404f; --curtain2: #8c2c3b; --crowd: rgba(6, 8, 16, .88); --spot: rgba(255, 240, 200, .22);
   color-scheme: dark;
 }
 
@@ -117,6 +126,7 @@ footer.fineprint { text-align: center; margin-top: 28px; }
 .upload-card.over { background: var(--accent-weak); box-shadow: 0 0 0 2px var(--accent); }
 .waiting { display: flex; justify-content: center; align-items: flex-end; gap: clamp(0px, 2vw, 14px); height: 116px; }
 .waiting .critter { width: clamp(70px, 20vw, 100px); }
+.waiting .critter::before, .waiting .critter::after { display: none; }
 .upload-card label.btn { position: relative; }
 .upload-card input[type=file] { position: absolute; inset: 0; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 
@@ -192,16 +202,64 @@ textarea {
 .c1 { width: 86px; top: 36px; left: -100px; }
 .c2 { width: 66px; top: 84px; left: -100px; animation-delay: -18s; animation-duration: 55s; }
 @keyframes drift { to { transform: translateX(1000px); } }
-.fx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+.fx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
 /* 무대 배경 테마 (화면 테마와 상관없이 고정된 색) */
 .stage[data-scene="sunset"] { --sky1: #ff9f8a; --sky2: #ffd9a8; --grass1: #86b85e; --grass2: #6aa04c; --sun: #ff8a5c; --cloud: rgba(255, 236, 224, .85); }
-.stage[data-scene="sunset"] .sun { top: 44%; width: 70px; height: 70px; }
-.stage[data-scene="night"] { --sky1: #0d1838; --sky2: #2a3a6e; --grass1: #2d5636; --grass2: #22452a; --sun: #fff4cf; --cloud: rgba(200, 210, 255, .22); }
+.stage[data-scene="sunset"] .sun { top: 30%; width: 70px; height: 70px; }
+.stage[data-scene="night"] { --sky1: #0d1838; --sky2: #2a3a6e; --grass1: #2d5636; --grass2: #22452a; --sun: #fff4cf; --cloud: rgba(200, 210, 255, .22); --spot: rgba(255, 238, 180, .42); --crowd: rgba(4, 6, 16, .9); }
 .stage[data-scene="night"] .sun { width: 40px; height: 40px; box-shadow: 0 0 30px var(--sun); }
 .stage[data-scene="night"] .critter.singing .critter-svg { filter: drop-shadow(0 0 14px rgba(255, 236, 170, .75)); }
 .stage[data-scene="spring"] { --sky1: #bfe4ff; --sky2: #ffeef6; --grass1: #a9df88; --grass2: #89ca6c; --sun: #fff1a6; --cloud: rgba(255, 255, 255, .9); }
 .stage[data-scene="winter"] { --sky1: #b9cde3; --sky2: #eef4fb; --grass1: #f6f9fd; --grass2: #dde7f2; --sun: #fffbe9; --cloud: rgba(255, 255, 255, .95); }
-.grass { position: absolute; left: 0; right: 0; bottom: 0; height: 26%; background: linear-gradient(var(--grass1), var(--grass2)); z-index: 1; pointer-events: none; }
+.stage[data-scene="beach"] { --sky1: #6cc7f5; --sky2: #d9f4ff; --grass1: #f6e2b3; --grass2: #ecd096; --sun: #fff0a0; --cloud: rgba(255, 255, 255, .95); --sea1: #3fb6e0; --sea2: #1d8fc4; }
+.sea { display: none; }
+.stage[data-scene="beach"] .sea {
+  display: block; position: absolute; left: 0; right: 0; top: 40%; height: 26%;
+  background: linear-gradient(var(--sea1), var(--sea2)); box-shadow: 0 -1px 6px rgba(255, 255, 255, .6);
+}
+
+/* 작은 공연 무대: 언덕(또는 모래밭) 위 나무 무대, 앞턱, 맨 앞 관객석, 위와 양옆 커튼 */
+.ground { position: absolute; left: 0; right: 0; bottom: 0; height: 40%; background: linear-gradient(var(--grass1), var(--grass2)); z-index: 1; }
+.deck {
+  position: absolute; left: 0; right: 0; bottom: 13%; height: 21%; z-index: 1;
+  clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+  background:
+    repeating-linear-gradient(180deg, transparent 0 9px, rgba(90, 50, 20, .16) 9px 10px),
+    linear-gradient(var(--wood1), var(--wood2));
+}
+.apron {
+  position: absolute; left: 0; right: 0; bottom: 9%; height: 4.5%; z-index: 1;
+  background: linear-gradient(var(--wood2), var(--wood-edge)); box-shadow: 0 3px 8px rgba(0, 0, 0, .18);
+}
+.crowd {
+  position: absolute; left: -10px; right: -10px; bottom: -4px; height: 14%; z-index: 2; pointer-events: none;
+  display: flex; justify-content: space-around; align-items: flex-end; color: var(--crowd);
+}
+.fan {
+  height: 100%; width: auto; flex: none; overflow: visible; fill: currentColor;
+  transform: translateY(calc(var(--y, 0) * 1px));
+}
+/* 박자에 맞춰 고개 까딱 (--bob은 앱이 박 첫머리마다 1→0으로 보냄) */
+.fan .hd { transform: translateY(calc(var(--bob, 0) * var(--k, 1) * 3px)); }
+.fan .arms { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; opacity: 0; transition: opacity .2s; }
+.stage.cheer .fan { animation: fanHop .42s ease-in-out infinite alternate; animation-delay: calc(var(--k, 1) * -.37s); }
+.stage.cheer .fan .arms { opacity: 1; }
+@keyframes fanHop { to { transform: translateY(calc(var(--y, 0) * 1px - 6px)); } }
+
+.curtains { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.valance {
+  position: absolute; left: 0; right: 0; top: 0; height: 24px;
+  background: linear-gradient(var(--curtain1), var(--curtain2));
+  -webkit-mask: radial-gradient(circle at 16px 7px, #000 15px, transparent 15.5px) 0 0 / 32px 24px repeat-x, linear-gradient(#000, #000) 0 0 / 100% 8px no-repeat;
+  mask: radial-gradient(circle at 16px 7px, #000 15px, transparent 15.5px) 0 0 / 32px 24px repeat-x, linear-gradient(#000, #000) 0 0 / 100% 8px no-repeat;
+}
+.drape {
+  position: absolute; top: 0; bottom: 9%; width: 7%;
+  background: repeating-linear-gradient(90deg, var(--curtain1) 0 7px, var(--curtain2) 7px 12px);
+}
+/* 가운데가 묶여서 젖혀진 커튼 */
+.drape.l { left: 0; clip-path: polygon(0 0, 100% 0, 100% 10%, 40% 52%, 85% 100%, 0 100%); }
+.drape.r { right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 15% 100%, 60% 52%, 0 10%); }
 
 /* 무대 위 가사 한 줄 (노래방처럼 부르는 글자를 파랗게) */
 .lyric-bar {
@@ -222,20 +280,35 @@ textarea {
 .lyric-line span.now { color: var(--accent); }
 
 .critters {
-  position: absolute; left: 0; right: 0; bottom: 5%; z-index: 2;
+  position: absolute; left: 0; right: 0; bottom: 18%; z-index: 3;
   display: flex; justify-content: center; align-items: flex-end; gap: clamp(0px, 2.4vw, 22px); padding: 0 8px;
 }
 .critter { position: relative; width: calc(clamp(72px, 21vw, 132px) * var(--scale, 1)); transition: opacity .3s, filter .3s, width .35s ease; }
 .critter.dimmed { opacity: .45; filter: grayscale(.6); }
-.critter-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.critter-svg { width: 100%; height: auto; display: block; overflow: visible; position: relative; }
+/* 가수마다 위에서 비추는 조명 (노래할 때 더 밝고 따뜻하게) */
+.critter::before, .critter::after { content: ""; position: absolute; left: 50%; pointer-events: none; transition: opacity .35s; }
+.critter::before {
+  bottom: 4%; width: 150%; height: 260%; transform: translateX(-50%); opacity: .55;
+  background: linear-gradient(transparent, var(--spot) 75%);
+  clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%);
+}
+.critter::after {
+  bottom: -4%; width: 110%; height: 16%; transform: translateX(-50%); opacity: .5; border-radius: 50%;
+  background: radial-gradient(closest-side, var(--spot), transparent);
+}
+.critter.singing::before, .critter.singing::after { opacity: 1; }
+.critter.dimmed::before, .critter.dimmed::after { opacity: .15; }
 .critter.enter { animation: hopIn .8s cubic-bezier(.3, 1.45, .5, 1) both; animation-delay: var(--d, 0s); }
 @keyframes hopIn { from { transform: translateY(115%); } to { transform: translateY(0); } }
+/* 이름표는 발밑 무대 앞턱에 놓인 작은 명판처럼 */
 .critter .name-tag {
-  position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); z-index: 5;
-  background: var(--tag-bg); color: var(--tag-ink); font-size: 12px; font-weight: 600; line-height: 1.3;
-  border-radius: 10px; padding: 2px 8px; white-space: nowrap; text-align: center;
+  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); z-index: 5;
+  background: var(--tag-bg); color: var(--tag-ink); font-size: 11px; font-weight: 700; line-height: 1.25;
+  border-radius: 8px; padding: 2px 8px; white-space: nowrap; text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .16);
 }
-.critter .name-tag small { display: block; font-size: 10px; font-weight: 500; color: var(--tag-sub); }
+.critter .name-tag small { display: block; font-size: 9.5px; font-weight: 500; color: var(--tag-sub); }
 .bubble {
   position: absolute; top: -32px; left: 50%; transform: translateX(-50%) scale(.6); opacity: 0;
   background: var(--bubble); color: var(--bubble-ink); border-radius: 14px; padding: 3px 10px; font-weight: 700; font-size: 16px;
@@ -341,6 +414,7 @@ input[type=range] { accent-color: var(--accent); width: 100%; min-width: 0; marg
 }
 .switch:checked { background: var(--accent); }
 .switch:checked::before { transform: translateX(20px); }
+.set-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 #exportPlayer { width: 100%; margin: 4px 0 12px; }
 
 /* 하단 고정 버튼 (토스 느낌) */
@@ -353,6 +427,7 @@ input[type=range] { accent-color: var(--accent); width: 100%; min-width: 0; marg
 .cta-bar .btn { max-width: 600px; pointer-events: auto; box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
 
 @media (prefers-reduced-motion: reduce) {
-  .critter.enter, .cloud { animation: none; }
+  .critter.enter, .cloud, .stage.cheer .fan { animation: none; }
+  .fan .hd { transform: none; }
   .btn, .play-btn { transition: none; }
 }

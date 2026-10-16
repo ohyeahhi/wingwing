@@ -375,7 +375,8 @@
       if (c.setRange && line && line.notes.length) {
         let lo = 127, hi = 0;
         for (const n of line.notes) { lo = Math.min(lo, n.midi); hi = Math.max(hi, n.midi); }
-        c.setRange(lo + 12 * s.octave, hi + 12 * s.octave);
+        const sh = 12 * s.octave + state.transpose; // 노래하는 음(ev.midi)에는 옥타브·조옮김이 들어 있다
+        c.setRange(lo + sh, hi + sh);
       }
       c.setDimmed(!line || effVolume(s) === 0);
       // 목소리가 낮을수록 몸집이 크게
@@ -972,6 +973,7 @@
     $('#transpose').addEventListener('input', e => {
       state.transpose = +e.target.value;
       $('#transposeOut').textContent = (state.transpose > 0 ? '+' : '') + state.transpose;
+      refreshCritterTags();
       restartSoon();
     });
     $('#reverb').addEventListener('input', e => {
