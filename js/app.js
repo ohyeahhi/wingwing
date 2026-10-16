@@ -18,7 +18,9 @@
     { name: '멍구', species: 'dog', outfit: '#ffd166', octave: 0, personality: 'jock', ...PERSONALITY.jock.voice, volume: 0.85, syllables: '라' },
     { name: '곰돌', species: 'bear', outfit: '#9be39b', octave: 0, personality: 'lazy', ...PERSONALITY.lazy.voice, volume: 0.95, syllables: '라' },
   ];
-  const DEFAULT_STAGE = { scene: 'day', accomp: 'none', dance: 1, greet: true, applause: true, sizeByVoice: false };
+  const DEFAULT_STAGE = { scene: 'day', accomp: 'none', dance: 1, greet: true, applause: true, sizeByVoice: false, groove: 'original', costume: 'auto' };
+  // 배경에 맞춘 의상 ("배경에 맞춰"를 골랐을 때)
+  const SCENE_COSTUME = { day: 'none', sunset: 'none', night: 'bowtie', spring: 'flower', winter: 'santa', beach: 'straw' };
   // 목소리 기본값이 바뀌면 버전을 올려서 예전 저장값을 쓰지 않는다
   const STORE_KEY = 'wingwing-choir-v3';
 
@@ -145,7 +147,25 @@
   function lineById(id) { return state.lines.find(l => l.id === id) || null; }
 
   function activeSingers() {
-    return state.singers.slice(0, state.count).map((s, i) => ({ s, i, line: lineById(s.lineId) })).filter(x => x.line);
+    return state.singers.slice(0, state.count).map((s, i) => ({ s, i, line: playLine(lineById(s.lineId)) })).filter(x => x.line);
+  }
+
+  // ---------- 재즈 편곡 (스윙·보사노바·재즈 발라드) ----------
+  function grooveOn() { return !!(W.Groove && state.stage.groove && state.stage.groove !== 'original' && state.song && state.song.beatToSec); }
+  function songMeter() {
+    const song = state.song;
+    if (song && song.timeSig && song.timeSig.num && song.timeSig.den) return song.timeSig;
+    return beatPulse() === 1.5 ? { num: 6, den: 8 } : { num: 4, den: 4 };
+  }
+  // 편곡에 맞춰 리듬을 바꾼 파트 (원래 파트는 그대로 두고, 고른 편곡마다 한 번만 만든다)
+  const grooveCache = new WeakMap();
+  function playLine(line) {
+    if (!line || !grooveOn()) return line;
+    let byId = grooveCache.get(line);
+    if (!byId) { byId = {}; grooveCache.set(line, byId); }
+    const id = state.stage.groove;
+    if (!byId[id]) byId[id] = W.Groove.retimeLine(line, id, songMeter(), state.song.beatToSec);
+    return byId[id];
   }
 
   function effVolume(s) {
@@ -204,7 +224,15 @@
   // 반주 (무대 꾸미기에서 고른 악기)
   function startAccomp(ctx, dest, offset, when) {
     const song = state.song;
-    if (state.stage.accomp === 'none' || !song || !song.beatToSec || !state.chordTimeline.length) return null;
+    if (!song || !song.beatToSec || !state.chordTimeline.length) return null;
+    if (grooveOn()) {
+      // 재즈 편곡을 고르면 드럼·베이스·피아노(기타) 밴드가 반주한다
+      return W.Groove.start(ctx, dest, {
+        id: state.stage.groove, chords: state.chordTimeline, meter: songMeter(), beatToSec: song.beatToSec,
+        offset, when, speed: state.speed, transpose: state.transpose, volume: 0.9,
+      });
+    }
+    if (state.stage.accomp === 'none') return null;
     return W.Accomp.start(ctx, dest, {
       chords: state.chordTimeline, style: state.stage.accomp, pulse: beatPulse(),
       beatToSec: song.beatToSec, offset, when, speed: state.speed, transpose: state.transpose, volume: 0.75,
@@ -286,11 +314,17 @@
     refreshCritterTags();
   }
 
+  function costumeNow() {
+    const c = state.stage.costume;
+    return c === 'auto' ? (SCENE_COSTUME[state.stage.scene] || 'none') : c;
+  }
   function applyCritterLooks() {
+    const costume = costumeNow();
     critters.forEach((c, i) => {
       const s = state.singers[i];
       c.dance = state.stage.dance;
       c.mood = (PERSONALITY[s.personality] || PERSONALITY.sweet).mood;
+      if (c.setCostume) c.setCostume(costume);
     });
   }
 
@@ -320,8 +354,14 @@
   }
 
   // 노래가 끝나면 꾸벅 인사 + 박수 + 꽃가루
+  let cheerTimer = null;
   function curtainCall() {
     critters.forEach((c, i) => setTimeout(() => c.bow(), i * 120));
+    // 관객도 환호
+    const st = $('#stage');
+    st.classList.add('cheer');
+    clearTimeout(cheerTimer);
+    cheerTimer = setTimeout(() => st.classList.remove('cheer'), 3200);
     fx.burst();
     if (state.ctx && state.ctx.state === 'running') W.Sfx.applause(state.ctx, state.bus.input, 3.2);
   }
@@ -331,6 +371,12 @@
       const s = state.singers[i];
       const line = lineById(s.lineId);
       c.tag.innerHTML = `${escapeHtml(s.name)}<small>${escapeHtml(partLabel(line))}</small>`;
+      // 표정: 이 파트의 음역 안에서 높은 음일수록 눈이 커진다
+      if (c.setRange && line && line.notes.length) {
+        let lo = 127, hi = 0;
+        for (const n of line.notes) { lo = Math.min(lo, n.midi); hi = Math.max(hi, n.midi); }
+        c.setRange(lo + 12 * s.octave, hi + 12 * s.octave);
+      }
       c.setDimmed(!line || effVolume(s) === 0);
       // 목소리가 낮을수록 몸집이 크게
       c.setScale(state.stage.sizeByVoice && line ? Math.max(0.84, Math.min(1.16, 1 + (62 - avgPitch(line)) * 0.013)) : 1);
@@ -360,6 +406,7 @@
   // ---------- 그리기 루프 ----------
   function fmt(t) { t = Math.max(0, t); return Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0'); }
 
+  let lastBob = -1;
   function drawFrame() {
     const now = performance.now();
     const pos = currentPos();
@@ -373,6 +420,9 @@
     const audioT = state.playing ? state.ctx.currentTime : 0;
     const beat = state.playing && state.song && state.song.secToBeat ? state.song.secToBeat(pos) / beatPulse() : null;
     fx.tick();
+    // 관객이 박자에 맞춰 고개를 까딱 (박 첫머리에 가장 크게)
+    const bob = beat == null ? 0 : Math.pow(1 - (beat - Math.floor(beat)), 3);
+    if (Math.abs(bob - lastBob) > 0.01) { $('#stage').style.setProperty('--bob', bob.toFixed(3)); lastBob = bob; }
     // 1) 가수마다 지금 부르는 음
     const cur = critters.map((c, i) => {
       const hx = state.playing ? state.handles.find(x => x.i === i) : null;
@@ -447,7 +497,7 @@
   function renderLyrics(pos, fallbackText) {
     const bar = $('#lyricBar'), lineEl = $('#lyricLine');
     const li = leadSingerIndex();
-    const line = li >= 0 ? lineById(state.singers[li].lineId) : null;
+    const line = li >= 0 ? playLine(lineById(state.singers[li].lineId)) : null;
     // 곡이 바뀌면 파트 id(L0 …)가 같아도 다른 파트이므로 id가 아니라 파트 자체로 비교한다
     if (line !== lyric.line) { lyric.line = line; lyric.phrases = buildPhrases(line); lyric.shown = -2; }
     const ph = lyric.phrases;
@@ -500,7 +550,7 @@
     const parts = [];
     for (let i = 0; i < state.count; i++) {
       const s = state.singers[i];
-      const line = lineById(s.lineId);
+      const line = playLine(lineById(s.lineId));
       if (line) parts.push({ notes: line.notes, color: s.outfit, dim: effVolume(s) === 0 });
     }
     roll.setParts(parts);
@@ -683,15 +733,38 @@
       (song.chords ? ' (악보의 코드 진행 사용)' : ''), 'ok');
   }
 
+  // 편곡을 바꾸면: 리듬을 다시 잡고, 자동 화음이 클래식이면 재즈 화음으로 바꿔 준다
+  function onGrooveChange() {
+    const id = state.stage.groove;
+    const label = (W.Groove && W.Groove.LIST.find(g => g.id === id) || {}).label || id;
+    let extra = '';
+    if (id !== 'original' && state.harmonyStyle === 'classic' && state.lines.some(l => l.auto)) {
+      state.harmonyStyle = 'jazz';
+      refreshStyleSeg();
+      savePrefs();
+      autoHarmony(true);
+      extra = ' 자동 화음도 재즈 화음으로 바꿨어요.';
+    }
+    refreshRoll();
+    refreshSongMeta();
+    if (state.song) msg(id === 'original' ? '원곡 리듬으로 불러요.' : `${label} 편곡으로 불러요. 드럼·베이스·${id === 'bossa' ? '기타' : '피아노'} 밴드가 반주해요.${extra}`, 'ok');
+    if (state.playing) startPlayback(currentPos());
+  }
+
   function applyScene() {
     $('#stage').dataset.scene = state.stage.scene;
     fx.setScene(state.stage.scene);
+    applyCritterLooks(); // "배경에 맞춰" 의상
   }
   function refreshStageControls() {
     const mark = (sel, val) => document.querySelectorAll(sel + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(val)));
     mark('#sceneChips', state.stage.scene);
     mark('#accSeg', state.stage.accomp);
     mark('#danceSeg', state.stage.dance);
+    mark('#grooveChips', state.stage.groove);
+    mark('#costumeChips', state.stage.costume);
+    const accNote = $('#accNote');
+    if (accNote) accNote.hidden = state.stage.groove === 'original';
     $('#optGreet').checked = state.stage.greet;
     $('#optApplause').checked = state.stage.applause;
     $('#optSize').checked = state.stage.sizeByVoice;
@@ -933,6 +1006,8 @@
     segBind('#sceneChips', 'scene', v => v, applyScene);
     segBind('#accSeg', 'accomp', v => v, () => restartSoon());
     segBind('#danceSeg', 'dance', v => +v, applyCritterLooks);
+    segBind('#costumeChips', 'costume', v => v, applyCritterLooks);
+    segBind('#grooveChips', 'groove', v => v, onGrooveChange);
     [['#optGreet', 'greet'], ['#optApplause', 'applause'], ['#optSize', 'sizeByVoice']].forEach(([sel, key]) => {
       $(sel).addEventListener('change', e => {
         state.stage[key] = e.target.checked;

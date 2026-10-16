@@ -77,7 +77,7 @@
     return out;
   }
 
-  function finalizeSong({ title, tracks, tempoEvents, key, fallbackBpm, chords, harmonizeLine, beatUnit }) {
+  function finalizeSong({ title, tracks, tempoEvents, key, fallbackBpm, chords, harmonizeLine, beatUnit, timeSig }) {
     const tempo = makeTempoMap(tempoEvents, fallbackBpm);
     const lines = [];
     for (const tr of tracks) {
@@ -101,6 +101,7 @@
       beatToSec: b => tempo.toSec(b),
       secToBeat: t => tempo.toBeat(t),
       beatUnit: beatUnit || null,
+      timeSig: timeSig || null,   // {num, den} 첫 박자표
     };
   }
 
@@ -125,7 +126,7 @@
     const tempoEvents = [];
     const chordEvents = [];
     let chordPart = null;
-    let beatUnit = null;
+    let beatUnit = null, timeSig = null;
     let key = null;
     const tracks = {};
     const trackOrder = [];
@@ -164,6 +165,7 @@
                 const beats = parseInt(txt(tm, 'beats') || '4', 10), type = parseInt(txt(tm, 'beat-type') || '4', 10);
                 // 6/8·9/8·12/8 은 점4분음표가 한 박
                 beatUnit = type === 8 && beats % 3 === 0 && beats > 3 ? 1.5 : 4 / type;
+                timeSig = { num: beats, den: type };
               }
               break;
             }
@@ -307,7 +309,7 @@
     chordEvents.sort((a, b) => a.b - b.b);
     const songEnd = Math.max(0, ...Object.values(tracks).flatMap(t => t.notes.map(n => n.b + n.bd)));
     const chords = chordEvents.map((c, i) => ({ ...c, bd: (i + 1 < chordEvents.length ? chordEvents[i + 1].b : songEnd) - c.b })).filter(c => c.bd > 0);
-    return finalizeSong({ title, tracks: trackOrder.map(k => tracks[k]), tempoEvents, key, chords, beatUnit });
+    return finalizeSong({ title, tracks: trackOrder.map(k => tracks[k]), tempoEvents, key, chords, beatUnit, timeSig });
   }
 
   // <sound segno=…, coda=…, tocoda=…, dacapo="yes", dalsegno=…, fine=…>
@@ -462,7 +464,7 @@
   }
 
   function parseTextScore(text) {
-    let title = '', bpm = 100, harmonizeLine = null, beatUnit = null;
+    let title = '', bpm = 100, harmonizeLine = null, beatUnit = null, timeSig = null;
     const chords = [];
     let chordCursor = 0;
     const voices = {};
@@ -481,7 +483,7 @@
       if (['빠르기', 'tempo', 'bpm'].includes(low)) { bpm = parseFloat(body) || bpm; return; }
       if (['박자', 'time', 'meter'].includes(low)) {
         const tm = body.match(/(\d+)\s*\/\s*(\d+)/);
-        if (tm) { const bt = +tm[1], ty = +tm[2]; beatUnit = ty === 8 && bt % 3 === 0 && bt > 3 ? 1.5 : 4 / ty; }
+        if (tm) { const bt = +tm[1], ty = +tm[2]; beatUnit = ty === 8 && bt % 3 === 0 && bt > 3 ? 1.5 : 4 / ty; timeSig = { num: bt, den: ty }; }
         return;
       }
       if (['가사', 'lyrics', 'lyric'].includes(low)) { commonLyrics.push(...splitLyrics(body)); return; }
@@ -532,7 +534,7 @@
       return { name: v.name, notes: v.notes };
     });
     if (harmonizeLine && !voices[harmonizeLine]) throw new Error(`화음: "${harmonizeLine}" 이라는 파트가 없어요.`);
-    return finalizeSong({ title, tracks, tempoEvents: [{ b: 0, bpm }], chords, harmonizeLine, beatUnit });
+    return finalizeSong({ title, tracks, tempoEvents: [{ b: 0, bpm }], chords, harmonizeLine, beatUnit, timeSig });
   }
 
   W.Score = { makeTempoMap, finalizeSong, parseMusicXML, parseMXL, parseTextScore };

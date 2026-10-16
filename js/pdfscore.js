@@ -528,7 +528,7 @@
     const partOrder = [];
     const chordEvents = [];
     const pgCache = [];
-    let tempo = null, beatUnit = null;
+    let tempo = null, beatUnit = null, timeSig = null;
     let globalBeat = 0, songEnd = 0;
     let total = 0, done = 0;
     for (const si of sectionIdx) total += sections[si].pages.length;
@@ -567,7 +567,10 @@
           const mCount = Math.max(0, ...results.map(r => r.measures.length));
           const anyState = state[sysParts[0].key];
           const timeLen = t => (t ? t.num * 4 / t.den : 4);
-          if (!beatUnit && anyState.time) beatUnit = anyState.time.den === 8 && anyState.time.num % 3 === 0 && anyState.time.num > 3 ? 1.5 : 4 / anyState.time.den;
+          if (!beatUnit && anyState.time) {
+            beatUnit = anyState.time.den === 8 && anyState.time.num % 3 === 0 && anyState.time.num > 3 ? 1.5 : 4 / anyState.time.den;
+            timeSig = { num: anyState.time.num, den: anyState.time.den };
+          }
           const lens = [];
           for (let m = 0; m < mCount; m++) {
             const t = (results.find(r => r.measures[m]) && state[sysParts[results.findIndex(r => r.measures[m])].key].time) || anyState.time;
@@ -683,7 +686,7 @@
     chords.forEach((c, i) => { c.bd = (i + 1 < chords.length ? chords[i + 1].b : songEnd) - c.b; });
     const title = handle.title || '';
     return W.Score.finalizeSong({
-      title, tracks, tempoEvents: [{ b: 0, bpm: tempo || 100 }], chords: chords.filter(c => c.bd > 0), beatUnit,
+      title, tracks, tempoEvents: [{ b: 0, bpm: tempo || 100 }], chords: chords.filter(c => c.bd > 0), beatUnit, timeSig,
     });
   }
 
