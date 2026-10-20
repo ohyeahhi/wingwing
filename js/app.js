@@ -36,6 +36,7 @@
     speed: 1,
     transpose: 0,
     reverb: 0.25,
+    mix: { voice: 100, band: 100 }, // 목소리·반주 소리 크기(%)
     pos: 0,           // 곡 위치(초)
     playing: false,
     ctx: null,
@@ -57,6 +58,7 @@
     if (saved && saved.count >= 1 && saved.count <= 4) state.count = saved.count;
     if (saved && saved.harmonyStyle && W.Harmony.STYLES.includes(saved.harmonyStyle)) state.harmonyStyle = saved.harmonyStyle;
     if (saved && saved.stage) state.stage = { ...DEFAULT_STAGE, ...saved.stage };
+    if (saved && saved.mix) state.mix = { ...state.mix, ...saved.mix };
   }
   function savePrefs() {
     try {
@@ -64,6 +66,7 @@
         count: state.count,
         harmonyStyle: state.harmonyStyle,
         stage: state.stage,
+        mix: state.mix,
         singers: state.singers.map(({ lineId, mute, solo, ...rest }) => rest),
       }));
     } catch (e) { /* 저장 불가 환경 */ }
@@ -131,7 +134,19 @@
     input.connect(dry); dry.connect(comp);
     input.connect(conv); conv.connect(wet); wet.connect(comp);
     comp.connect(ctx.destination);
-    return { input, wet };
+    // 목소리와 반주는 각자 볼륨을 거쳐 같은 울림·컴프레서로 들어간다
+    const voice = ctx.createGain(); voice.gain.value = mixGain(state.mix.voice);
+    const band = ctx.createGain(); band.gain.value = mixGain(state.mix.band);
+    voice.connect(input); band.connect(input);
+    return { input, wet, voice, band };
+  }
+  // 슬라이더(0~150%) → 음량: 귀로 듣기에 고르게 커지도록 살짝 휘게
+  function mixGain(pct) { return Math.pow(Math.max(0, pct) / 100, 1.6); }
+  function applyMix() {
+    if (!state.bus) return;
+    const t = state.ctx.currentTime;
+    state.bus.voice.gain.setTargetAtTime(mixGain(state.mix.voice), t, 0.04);
+    state.bus.band.gain.setTargetAtTime(mixGain(state.mix.band), t, 0.04);
   }
 
   function ensureCtx() {
@@ -206,10 +221,10 @@
     state.startWhen = when;
     state.startOffset = offset;
     state.handles = activeSingers().map(({ s, i, line }) => ({
-      i, h: W.Voice.singLine(ctx, state.bus.input, line, voiceOpts(s), offset, when, state.speed),
+      i, h: W.Voice.singLine(ctx, state.bus.voice, line, voiceOpts(s), offset, when, state.speed),
       ptr: 0,
     }));
-    state.accomp = startAccomp(ctx, state.bus.input, offset, when);
+    state.accomp = startAccomp(ctx, state.bus.band, offset, when);
     state.playing = true;
     setPlayIcon(true);
     updateStartOverlay();
@@ -348,7 +363,7 @@
       t: k * step, d: step * 0.95, lyric: ch,
       midi: base + contour[k % contour.length] + (k === syl.length - 1 && /!/.test(text) ? 3 : 0),
     }));
-    W.Voice.singLine(state.ctx, state.bus.input, { notes, hasLyrics: true },
+    W.Voice.singLine(state.ctx, state.bus.voice, { notes, hasLyrics: true },
       { ...voiceOpts(s), volume: s.volume * 0.85, transpose: 0, octave: 0, vibrato: 0, chirp: Math.min(1, s.chirp + 0.3) },
       0, state.ctx.currentTime + 0.03, 1);
   }
@@ -676,7 +691,7 @@
     const words = ['안', '녕', '하', '세', '요'];
     const pitches = [0, 2, 4, 2, 7];
     const notes = words.map((w, k) => ({ t: k * 0.22, d: k === 4 ? 0.6 : 0.2, midi: base + pitches[k], lyric: w }));
-    W.Voice.singLine(ctx, state.bus.input, { notes, hasLyrics: true }, { ...voiceOpts(s), volume: s.volume, transpose: 0 }, 0, ctx.currentTime + 0.05, 1);
+    W.Voice.singLine(ctx, state.bus.voice, { notes, hasLyrics: true }, { ...voiceOpts(s), volume: s.volume, transpose: 0 }, 0, ctx.currentTime + 0.05, 1);
   }
 
   // ---------- 인원 / 배정 ----------
@@ -927,8 +942,8 @@
       const secs = state.duration / state.speed + 2.2;
       const off = new OfflineAudioContext(2, Math.ceil(sr * secs), sr);
       const bus = buildBus(off);
-      for (const { s, line } of act) W.Voice.singLine(off, bus.input, line, voiceOpts(s), 0, 0.05, state.speed);
-      startAccomp(off, bus.input, 0, 0.05);
+      for (const { s, line } of act) W.Voice.singLine(off, bus.voice, line, voiceOpts(s), 0, 0.05, state.speed);
+      startAccomp(off, bus.band, 0, 0.05);
       const rendered = await off.startRendering();
       if (lastExportUrl) URL.revokeObjectURL(lastExportUrl);
       const url = lastExportUrl = URL.createObjectURL(encodeWav(rendered));
@@ -975,6 +990,16 @@
       $('#transposeOut').textContent = (state.transpose > 0 ? '+' : '') + state.transpose;
       refreshCritterTags();
       restartSoon();
+    });
+    [['#voiceVol', 'voice'], ['#bandVol', 'band']].forEach(([sel, key]) => {
+      const el = $(sel), out = $(sel + 'Out');
+      el.value = state.mix[key]; out.textContent = state.mix[key] + '%';
+      el.addEventListener('input', () => {
+        state.mix[key] = +el.value;
+        out.textContent = el.value + '%';
+        applyMix();
+      });
+      el.addEventListener('change', savePrefs);
     });
     $('#reverb').addEventListener('input', e => {
       state.reverb = e.target.value / 100;
