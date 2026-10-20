@@ -18,7 +18,7 @@
     { name: '멍구', species: 'dog', outfit: '#ffd166', octave: 0, personality: 'jock', ...PERSONALITY.jock.voice, volume: 0.85, syllables: '라' },
     { name: '곰돌', species: 'bear', outfit: '#9be39b', octave: 0, personality: 'lazy', ...PERSONALITY.lazy.voice, volume: 0.95, syllables: '라' },
   ];
-  const DEFAULT_STAGE = { scene: 'day', accomp: 'none', dance: 1, greet: true, applause: true, sizeByVoice: false, groove: 'original', costume: 'auto' };
+  const DEFAULT_STAGE = { scene: 'day', accomp: 'piano', dance: 1, greet: true, applause: true, sizeByVoice: false, groove: 'original', costume: 'auto' };
   // 배경에 맞춘 의상 ("배경에 맞춰"를 골랐을 때)
   const SCENE_COSTUME = { day: 'none', sunset: 'none', night: 'bowtie', spring: 'flower', winter: 'santa', beach: 'straw' };
   // 목소리 기본값이 바뀌면 버전을 올려서 예전 저장값을 쓰지 않는다
@@ -58,6 +58,8 @@
     if (saved && saved.count >= 1 && saved.count <= 4) state.count = saved.count;
     if (saved && saved.harmonyStyle && W.Harmony.STYLES.includes(saved.harmonyStyle)) state.harmonyStyle = saved.harmonyStyle;
     if (saved && saved.stage) state.stage = { ...DEFAULT_STAGE, ...saved.stage };
+    // 반주 기본값이 '없음'→'피아노'로 바뀌기 전에 저장된 값은 새 기본값을 따른다
+    if (saved && saved.stage && !saved.stageV2 && state.stage.accomp === 'none') state.stage.accomp = 'piano';
     if (saved && saved.mix) state.mix = { ...state.mix, ...saved.mix };
   }
   function savePrefs() {
@@ -67,6 +69,7 @@
         harmonyStyle: state.harmonyStyle,
         stage: state.stage,
         mix: state.mix,
+        stageV2: true,
         singers: state.singers.map(({ lineId, mute, solo, ...rest }) => rest),
       }));
     } catch (e) { /* 저장 불가 환경 */ }
